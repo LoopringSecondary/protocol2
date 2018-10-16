@@ -20,6 +20,7 @@ pragma experimental "ABIEncoderV2";
 
 import "../impl/BrokerInterceptorProxy.sol";
 import "../impl/Data.sol";
+import "../lib/ERC1400.sol";
 import "../lib/ERC20.sol";
 import "../lib/MathUint.sol";
 import "../lib/MultihashUtil.sol";
@@ -143,10 +144,13 @@ library OrderHelper {
         valid = valid && (order.amountS != 0); // invalid order amountS
         valid = valid && (order.amountB != 0); // invalid order amountB
         valid = valid && (order.feeToken != 0x0); // invalid fee token
+        valid = valid && (order.tokenTypeFee != Data.TokenType.ERC1400); // Never pay fees in a security token
         valid = valid && (order.feePercentage < ctx.feePercentageBase); // invalid fee percentage
 
         valid = valid && (order.tokenSFeePercentage < ctx.feePercentageBase); // invalid tokenS percentage
+        valid = valid && !(order.tokenSFeePercentage > 0 && order.tokenTypeS == Data.TokenType.ERC1400);
         valid = valid && (order.tokenBFeePercentage < ctx.feePercentageBase); // invalid tokenB percentage
+        valid = valid && !(order.tokenBFeePercentage > 0 && order.tokenTypeB == Data.TokenType.ERC1400);
         valid = valid && (order.walletSplitPercentage <= 100); // invalid wallet split percentage
 
         valid = valid && (order.validSince <= now); // order is too early to match
@@ -247,6 +251,8 @@ library OrderHelper {
     {
         return getSpendable(
             ctx.delegate,
+            order.tokenTypeS,
+            order.trancheS,
             order.tokenS,
             order.owner,
             order.broker,
@@ -265,6 +271,8 @@ library OrderHelper {
     {
         return getSpendable(
             ctx.delegate,
+            order.tokenTypeFee,
+            0x0,
             order.feeToken,
             order.owner,
             order.broker,
@@ -336,6 +344,30 @@ library OrderHelper {
         spendable = (balance < spendable) ? balance : spendable;
     }
 
+    /// @return Amount of ERC20 token that can be spent by this contract.
+    function getERC1400Spendable(
+        ITradeDelegate delegate,
+        address tokenAddress,
+        bytes32 tranche,
+        address owner
+        )
+        private
+        view
+        returns (uint spendable)
+    {
+        ERC1400 token = ERC1400(tokenAddress);
+        bool isOperator = token.isOperatorForTranche(
+            tranche,
+            address(delegate),
+            owner
+        );
+        if (isOperator) {
+            spendable = token.balanceOfTranche(tranche, owner);
+        } else {
+            spendable = 0;
+        }
+    }
+
     /// @return Amount of ERC20 token that can be spent by the broker
     function getBrokerAllowance(
         address tokenAddress,
@@ -355,6 +387,8 @@ library OrderHelper {
 
     function getSpendable(
         ITradeDelegate delegate,
+        Data.TokenType tokenType,
+        bytes32 tranche,
         address tokenAddress,
         address owner,
         address broker,
@@ -366,11 +400,22 @@ library OrderHelper {
         returns (uint spendable)
     {
         if (!tokenSpendable.initialized) {
-            tokenSpendable.amount = getERC20Spendable(
-                delegate,
-                tokenAddress,
-                owner
-            );
+            if(tokenType == Data.TokenType.ERC20) {
+                tokenSpendable.amount = getERC20Spendable(
+                    delegate,
+                    tokenAddress,
+                    owner
+                );
+            } else if(tokenType == Data.TokenType.ERC1400) {
+                tokenSpendable.amount = getERC1400Spendable(
+                    delegate,
+                    tokenAddress,
+                    tranche,
+                    owner
+                );
+            } else {
+                assert(false);
+            }
             tokenSpendable.initialized = true;
         }
         spendable = tokenSpendable.amount.sub(tokenSpendable.reserved);

@@ -28,6 +28,8 @@ import "../iface/ITradeDelegate.sol";
 
 library Data {
 
+    enum TokenType { ERC20, ERC1400 }
+
     struct Header {
         uint version;
         uint numOrders;
@@ -111,6 +113,14 @@ library Data {
         uint    filledAmountS;
         uint    initialFilledAmountS;
         bool    valid;
+
+        TokenType tokenTypeS;
+        TokenType tokenTypeB;
+        TokenType tokenTypeFee;
+
+        bytes32 trancheS;
+        bytes32 trancheB;
+        bytes   sendDataS;
     }
 
     struct Participation {

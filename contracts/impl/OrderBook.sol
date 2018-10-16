@@ -83,7 +83,13 @@ contract OrderBook is IOrderBook, NoDefaultFunc {
             0x0,
             0,
             0,
-            true
+            true,
+            Data.TokenType.ERC20,
+            Data.TokenType.ERC20,
+            Data.TokenType.ERC20,
+            0x0,
+            0x0,
+            new bytes(0)
         );
 
         order.updateHash();

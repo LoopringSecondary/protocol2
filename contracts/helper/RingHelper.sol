@@ -21,6 +21,7 @@ pragma experimental "ABIEncoderV2";
 import "../iface/IRingSubmitter.sol";
 import "../impl/BrokerInterceptorProxy.sol";
 import "../impl/Data.sol";
+import "../lib/ERC1400.sol";
 import "../lib/ERC20.sol";
 import "../lib/MathUint.sol";
 import "../lib/MultihashUtil.sol";
@@ -116,6 +117,22 @@ library RingHelper {
 
         for (i = 0; i < ring.size; i++) {
             prevIndex = (i + ring.size - 1) % ring.size;
+
+            // Check if we can transfer the tokens
+            if (ring.participations[i].order.tokenTypeS == Data.TokenType.ERC1400) {
+                (byte ESC, , bytes32 destTranche) = ERC1400(ring.participations[i].order.tokenS).canSend(
+                    ring.participations[i].order.owner,
+                    ring.participations[prevIndex].order.tokenRecipient,
+                    ring.participations[i].order.trancheS,
+                    ring.participations[i].fillAmountS,
+                    ring.participations[i].order.sendDataS
+                );
+                ring.valid = ring.valid && ESC == 0;
+                // The buyer can specify a specific tranche he wants to receive the tokens on
+                if (ring.participations[i].order.trancheB != 0x0) {
+                    ring.valid = ring.valid && destTranche == ring.participations[i].order.trancheB;
+                }
+            }
 
             bool valid = ring.participations[i].calculateFees(ring.participations[prevIndex], ctx);
             if (!valid) {
@@ -311,6 +328,8 @@ library RingHelper {
         ctx.transferPtr = addTokenTransfer(
             ctx.transferData,
             ctx.transferPtr,
+            p.order.tokenTypeFee,
+            0x0,
             p.order.feeToken,
             p.order.owner,
             address(ctx.feeHolder),
@@ -319,6 +338,8 @@ library RingHelper {
         ctx.transferPtr = addTokenTransfer(
             ctx.transferData,
             ctx.transferPtr,
+            p.order.tokenTypeS,
+            p.order.trancheS,
             p.order.tokenS,
             p.order.owner,
             address(ctx.feeHolder),
@@ -327,6 +348,8 @@ library RingHelper {
         ctx.transferPtr = addTokenTransfer(
             ctx.transferData,
             ctx.transferPtr,
+            p.order.tokenTypeS,
+            p.order.trancheS,
             p.order.tokenS,
             p.order.owner,
             prevP.order.tokenRecipient,
@@ -337,6 +360,8 @@ library RingHelper {
         ctx.transferPtr = addTokenTransfer(
             ctx.transferData,
             ctx.transferPtr,
+            p.order.tokenTypeS,
+            p.order.trancheS,
             p.order.tokenS,
             p.order.owner,
             feeRecipient,
@@ -365,6 +390,8 @@ library RingHelper {
     function addTokenTransfer(
         uint data,
         uint ptr,
+        Data.TokenType tokenType,
+        bytes32 tranche,
         address token,
         address from,
         address to,
@@ -378,12 +405,17 @@ library RingHelper {
             assembly {
                 // Try to find an existing fee payment of the same token to the same owner
                 let addNew := 1
-                for { let p := data } lt(p, ptr) { p := add(p, 128) } {
+                for { let p := data } lt(p, ptr) { p := add(p, 192) } {
                     let dataToken := mload(add(p,  0))
                     let dataFrom := mload(add(p, 32))
                     let dataTo := mload(add(p, 64))
-                    // if(token == dataToken && from == dataFrom && to == dataTo)
-                    if and(and(eq(token, dataToken), eq(from, dataFrom)), eq(to, dataTo)) {
+                    let dataTranche := mload(add(p, 160))
+                    // if(token == dataToken && from == dataFrom && to == dataTo && tranche == dataTranche)
+                    if and(and(and(
+                        eq(token, dataToken),
+                        eq(from, dataFrom)),
+                        eq(to, dataTo)),
+                        eq(tranche, dataTranche)) {
                         let dataAmount := mload(add(p, 96))
                         // dataAmount = amount.add(dataAmount);
                         dataAmount := add(amount, dataAmount)
@@ -403,7 +435,9 @@ library RingHelper {
                     mstore(add(ptr, 32), from)
                     mstore(add(ptr, 64), to)
                     mstore(add(ptr, 96), amount)
-                    ptr := add(ptr, 128)
+                    mstore(add(ptr, 128), tokenType)
+                    mstore(add(ptr, 160), tranche)
+                    ptr := add(ptr, 192)
                 }
             }
             return ptr;

@@ -397,8 +397,8 @@ contract RingSubmitter is IRingSubmitter, NoDefaultFunc {
         uint totalMaxSizeTransfers = 0;
         for (uint i = 0; i < rings.length; i++) {
             // Up to 4 transfers per order
-            // (4 x 32 bytes for every transfer)
-            uint maxSize = 4 * rings[i].size * 4;
+            // (6 x 32 bytes for every transfer)
+            uint maxSize = 4 * rings[i].size * 6;
             totalMaxSizeTransfers += maxSize;
         }
         // Store the data directly in the call data format as expected by batchTransfer:

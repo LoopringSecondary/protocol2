@@ -18,13 +18,16 @@ pragma solidity 0.4.24;
 pragma experimental "v0.5.0";
 pragma experimental "ABIEncoderV2";
 
+
 import "../iface/ITradeDelegate.sol";
 import "../lib/Claimable.sol";
+import "../lib/ERC1400.sol";
 import "../lib/ERC20.sol";
 import "../lib/ERC20SafeTransfer.sol";
 import "../lib/MathUint.sol";
 import "../lib/MemoryUtil.sol";
 import "../lib/NoDefaultFunc.sol";
+import "./Data.sol";
 
 
 /// @title An Implementation of ITradeDelegate.
@@ -107,29 +110,45 @@ contract TradeDelegate is ITradeDelegate, Claimable, NoDefaultFunc {
         notSuspended
     {
         uint length = batch.length;
-        require(length % 4 == 0, INVALID_SIZE);
+        require(length % 6 == 0, INVALID_SIZE);
 
         uint start = 68;
         uint end = start + length * 32;
-        for (uint p = start; p < end; p += 128) {
+        for (uint p = start; p < end; p += 192) {
             address token;
             address from;
             address to;
             uint amount;
+            Data.TokenType tokenType;
+            bytes32 tranche;
             assembly {
                 token := calldataload(add(p,  0))
                 from := calldataload(add(p, 32))
                 to := calldataload(add(p, 64))
                 amount := calldataload(add(p, 96))
+                tokenType := calldataload(add(p, 128))
+                tranche := calldataload(add(p, 160))
             }
-            require(
-                token.safeTransferFrom(
+            if (tokenType == Data.TokenType.ERC20) {
+                require(
+                    token.safeTransferFrom(
+                        from,
+                        to,
+                        amount
+                    ),
+                    TRANSFER_FAILURE
+                );
+            } else if (tokenType == Data.TokenType.ERC1400) {
+                (byte ESC, ) = ERC1400(token).operatorSendTranche(
+                    tranche,
                     from,
                     to,
-                    amount
-                ),
-                TRANSFER_FAILURE
-            );
+                    amount,
+                    new bytes(0),
+                    new bytes(0)
+                );
+                require(ESC == 0, TRANSFER_FAILURE);
+            }
         }
     }
 

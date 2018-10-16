@@ -128,7 +128,7 @@ library ExchangeDeserializer {
         returns (Data.Order[] orders)
     {
         bytes memory emptyBytes = new bytes(0);
-        uint orderStructSize = 33 * 32;
+        uint orderStructSize = 39 * 32;
         // Memory for orders length + numOrders order pointers
         uint arrayDataSize = (1 + numOrders) * 32;
         Data.Spendable[] memory spendableList = new Data.Spendable[](numSpendables);
@@ -351,6 +351,14 @@ library ExchangeDeserializer {
                 mstore(add(order,  960), 0)         // order.filledAmountS
                 mstore(add(order,  992), 0)         // order.initialFilledAmountS
                 mstore(add(order, 1024), 1)         // order.valid
+
+                // Set these to the defaults for now
+                mstore(add(order, 1056), 0)         // order.tokenTypeS
+                mstore(add(order, 1088), 0)         // order.tokenTypeB
+                mstore(add(order, 1120), 0)         // order.tokenTypeFee
+                mstore(add(order, 1152), 0)         // order.trancheS
+                mstore(add(order, 1184), 0)         // order.trancheS
+                mstore(add(order, 1216), emptyBytes)// order.sendDataS
 
                 // Advance to the next order
                 tablesPtr := add(tablesPtr, 50)

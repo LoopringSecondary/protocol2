@@ -75,8 +75,15 @@ library ParticipationHelper {
                 // so we have to make sure the funds needed for this order cannot be used
                 uint spendableFee = p.order.getSpendableFee(ctx);
                 if (p.feeAmount > spendableFee) {
-                    p.feeAmountB = p.fillAmountB.mul(p.order.feePercentage) / ctx.feePercentageBase;
-                    p.feeAmount = 0;
+                    // Never use a security token to pay fees.
+                    if (p.order.tokenTypeB == Data.TokenType.ERC1400) {
+                        // Pay the available fee balance
+                        p.feeAmount = spendableFee;
+                        p.order.reserveAmountFee(p.feeAmount);
+                    } else {
+                        p.feeAmountB = p.fillAmountB.mul(p.order.feePercentage) / ctx.feePercentageBase;
+                        p.feeAmount = 0;
+                    }
                 } else {
                     p.order.reserveAmountFee(p.feeAmount);
                 }
@@ -85,7 +92,12 @@ library ParticipationHelper {
 
         if ((p.fillAmountS - p.feeAmountS) >= prevP.fillAmountB) {
             // The miner (or in a P2P case, the taker) gets the margin
-            p.splitS = (p.fillAmountS - p.feeAmountS) - prevP.fillAmountB;
+            // Don't pay out the margin to the miner if it's a security token
+            if (p.order.tokenTypeS != Data.TokenType.ERC1400) {
+                p.splitS = (p.fillAmountS - p.feeAmountS) - prevP.fillAmountB;
+            } else {
+                p.splitS = 0;
+            }
             p.fillAmountS = prevP.fillAmountB + p.feeAmountS;
             return true;
         } else {
