@@ -147,7 +147,7 @@ contract TradeDelegate is ITradeDelegate, Claimable, NoDefaultFunc {
                     new bytes(0),
                     new bytes(0)
                 );
-                require(ESC == 0, TRANSFER_FAILURE);
+                require(ESC == 0x01, TRANSFER_FAILURE);
             }
         }
     }

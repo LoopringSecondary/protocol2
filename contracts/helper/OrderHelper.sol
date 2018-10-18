@@ -144,7 +144,7 @@ library OrderHelper {
         valid = valid && (order.amountS != 0); // invalid order amountS
         valid = valid && (order.amountB != 0); // invalid order amountB
         valid = valid && (order.feeToken != 0x0); // invalid fee token
-        valid = valid && (order.tokenTypeFee != Data.TokenType.ERC1400); // Never pay fees in a security token
+        valid = valid && (order.tokenTypeFee != Data.TokenType.ERC1400); // feeToken cannot be a security token
         valid = valid && (order.feePercentage < ctx.feePercentageBase); // invalid fee percentage
 
         valid = valid && (order.tokenSFeePercentage < ctx.feePercentageBase); // invalid tokenS percentage

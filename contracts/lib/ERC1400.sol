@@ -45,7 +45,7 @@ contract ERC1410 {
     function balanceOf(
         address _owner
         )
-        external
+        public
         view
         returns (uint256);
 
@@ -57,7 +57,7 @@ contract ERC1410 {
         bytes32 _tranche,
         address _owner
         )
-        external
+        public
         view
         returns (uint256);
 

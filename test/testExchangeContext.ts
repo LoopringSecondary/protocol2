@@ -12,7 +12,8 @@ export class ExchangeTestContext {
   public tokenSymbolAddrMap: Map<string, string>; // key: symbol, value: addr
   public tokenAddrSymbolMap: Map<string, string>; // key: addr, value: symbol
   public tokenAddrInstanceMap: Map<string, any>;
-  public allTokens: any[];
+  public allERC20Tokens: any[];
+  public allERC1400Tokens: any[];
 
   constructor(
     deployer: string,
@@ -27,7 +28,8 @@ export class ExchangeTestContext {
     tokenSymbolAddrMap: Map<string, string>,
     tokenAddrSymbolMap: Map<string, string>,
     tokenAddrInstanceMap: Map<string, any>,
-    allTokens: any[]) {
+    allERC20Tokens: any[],
+    allERC1400Tokens: any[]) {
     this.deployer = deployer;
     this.transactionOrigin = transactionOrigin;
     this.feeRecipient = feeRecipient;
@@ -40,6 +42,7 @@ export class ExchangeTestContext {
     this.tokenSymbolAddrMap = tokenSymbolAddrMap;
     this.tokenAddrSymbolMap = tokenAddrSymbolMap;
     this.tokenAddrInstanceMap = tokenAddrInstanceMap;
-    this.allTokens = allTokens;
+    this.allERC20Tokens = allERC20Tokens;
+    this.allERC1400Tokens = allERC1400Tokens;
   }
 }

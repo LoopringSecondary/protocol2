@@ -16,21 +16,19 @@
 */
 pragma solidity 0.4.24;
 
-import "./LRCToken.sol";
+import "./ERC1400Token.sol";
 
 
-/// @author Kongliang Zhong - <kongliang@loopring.org>
-contract DummyToken is LRCToken {
+/// @author Brecht Devos - <brecht@loopring.org>
+contract DummyERC1400Token is ERC1400Token {
 
     constructor(
         string _name,
         string _symbol,
-        uint8  _decimals,
         uint   _totalSupply
-    ) LRCToken(
+    ) ERC1400Token(
         _name,
         _symbol,
-        _decimals,
         _totalSupply,
         msg.sender
         )
@@ -45,13 +43,8 @@ contract DummyToken is LRCToken {
         )
         public
     {
-        uint currBalance = balanceOf(_target);
-        if (_value < currBalance) {
-            totalSupply_ = totalSupply_.sub(currBalance.sub(_value));
-        } else {
-            totalSupply_ = totalSupply_.add(_value.sub(currBalance));
-        }
-        balances[_target] = _value;
+        byte success = mint(_tranche, _target, _value, new bytes(0));
+        require(success == 0x01, "mint needs to succeed");
     }
 
     function addBalance(
@@ -61,10 +54,8 @@ contract DummyToken is LRCToken {
         )
         public
     {
-        uint currBalance = balanceOf(_target);
-        require(_value + currBalance >= currBalance, "INVALID_VALUE");
-        totalSupply_ = totalSupply_.add(_value);
-        balances[_target] = currBalance.add(_value);
+        byte success = mint(_tranche, _target, _value, new bytes(0));
+        require(success == 0x01, "mint needs to succeed");
     }
 
 }

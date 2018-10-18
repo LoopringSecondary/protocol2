@@ -1,4 +1,4 @@
-import { RingsInfo, SignAlgorithm } from "protocol2-js";
+import { RingsInfo, SignAlgorithm, TokenType } from "protocol2-js";
 import tokenInfos = require("../migrations/config/tokens.js");
 
 const tokenSymbols = tokenInfos.development.map((t) => t.symbol);
@@ -2123,6 +2123,47 @@ export const ringsInfoList: RingsInfo[] = [
             },
             {
               filledFraction: 1.0,
+            },
+          ],
+        },
+      ],
+    },
+  },
+
+  {
+    description: "single 2-size ring, selling ERC1400 token",
+    rings: [[0, 1]],
+    orders: [
+      {
+        index: 0,
+        tokenS: "STA",
+        trancheS: "0x" + "ab".repeat(32),
+        tokenTypeS: TokenType.ERC1400,
+        tokenB: "WETH",
+        amountS: 3e18,
+        amountB: 1e18,
+      },
+      {
+        index: 1,
+        tokenS: "WETH",
+        tokenB: "STA",
+        trancheB: "0x" + "ab".repeat(32),
+        tokenTypeB: TokenType.ERC1400,
+        amountS: 1e18,
+        amountB: 3e18,
+      },
+    ],
+    expected: {
+      rings: [
+        {
+          orders: [
+            {
+              filledFraction: 1.0,
+              margin: 0,
+            },
+            {
+              filledFraction: 1.0,
+              margin: 0,
             },
           ],
         },

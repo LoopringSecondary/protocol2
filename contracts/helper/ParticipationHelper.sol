@@ -92,12 +92,7 @@ library ParticipationHelper {
 
         if ((p.fillAmountS - p.feeAmountS) >= prevP.fillAmountB) {
             // The miner (or in a P2P case, the taker) gets the margin
-            // Don't pay out the margin to the miner if it's a security token
-            if (p.order.tokenTypeS != Data.TokenType.ERC1400) {
-                p.splitS = (p.fillAmountS - p.feeAmountS) - prevP.fillAmountB;
-            } else {
-                p.splitS = 0;
-            }
+            p.splitS = (p.fillAmountS - p.feeAmountS) - prevP.fillAmountB;
             p.fillAmountS = prevP.fillAmountB + p.feeAmountS;
             return true;
         } else {

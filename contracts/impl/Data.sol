@@ -120,7 +120,7 @@ library Data {
 
         bytes32 trancheS;
         bytes32 trancheB;
-        bytes   sendDataS;
+        bytes   transferDataS;
     }
 
     struct Participation {

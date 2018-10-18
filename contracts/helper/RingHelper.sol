@@ -125,13 +125,10 @@ library RingHelper {
                     ring.participations[prevIndex].order.tokenRecipient,
                     ring.participations[i].order.trancheS,
                     ring.participations[i].fillAmountS,
-                    ring.participations[i].order.sendDataS
+                    ring.participations[i].order.transferDataS
                 );
-                ring.valid = ring.valid && ESC == 0;
-                // The buyer can specify a specific tranche he wants to receive the tokens on
-                if (ring.participations[i].order.trancheB != 0x0) {
-                    ring.valid = ring.valid && destTranche == ring.participations[i].order.trancheB;
-                }
+                ring.valid = ring.valid && ESC == 0x01;
+                ring.valid = ring.valid && destTranche == ring.participations[prevIndex].order.trancheB;
             }
 
             bool valid = ring.participations[i].calculateFees(ring.participations[prevIndex], ctx);
@@ -302,7 +299,6 @@ library RingHelper {
         Data.Participation prevP
         )
         internal
-        returns (uint)
     {
         uint buyerFeeAmountAfterRebateB = prevP.feeAmountB.sub(prevP.rebateB);
 
@@ -322,6 +318,12 @@ library RingHelper {
         if (p.order.tokenS == p.order.feeToken) {
             amountSToFeeHolder = amountSToFeeHolder.add(amountFeeToFeeHolder);
             amountFeeToFeeHolder = 0;
+        }
+
+        uint margin = p.splitS;
+        // Don't pay out the margin to the miner if it's a security token
+        if (p.order.tokenTypeS == Data.TokenType.ERC1400) {
+            margin = 0;
         }
 
         // Transfers
@@ -365,7 +367,7 @@ library RingHelper {
             p.order.tokenS,
             p.order.owner,
             feeRecipient,
-            p.splitS
+            margin
         );
 
         // onTokenSpent broker callbacks
@@ -375,7 +377,7 @@ library RingHelper {
                 p.order.owner,
                 p.order.broker,
                 p.order.tokenS,
-                amountSToBuyer + amountSToFeeHolder + p.splitS
+                amountSToBuyer + amountSToFeeHolder + margin
             );
             onTokenSpent(
                 p.order.brokerInterceptor,

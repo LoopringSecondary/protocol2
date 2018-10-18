@@ -44,14 +44,39 @@ export class ExchangeTestUtil {
     });
   }
 
-  public async getTransferEvents(tokens: any[], fromBlock: number) {
-    let transferItems: Array<[string, string, string, BigNumber]> = [];
-    for (const tokenContractInstance of tokens) {
+  public async getTransferEvents(tokensERC20: any[], tokensERC1400: any[], fromBlock: number) {
+    const transferItems: pjs.TransferItem[] = [];
+    // ERC20
+    for (const tokenContractInstance of tokensERC20) {
       const eventArr: any = await this.getEventsFromContract(tokenContractInstance, "Transfer", fromBlock);
-      const items = eventArr.map((eventObj: any) => {
-        return [tokenContractInstance.address, eventObj.args.from, eventObj.args.to, eventObj.args.value];
+      eventArr.map((eventObj: any) => {
+        const transferItem: pjs.TransferItem = {
+          token: tokenContractInstance.address,
+          from: eventObj.args.from,
+          to: eventObj.args.to,
+          amount: eventObj.args.value,
+        };
+        console.log(transferItem);
+        transferItems.push(transferItem);
       });
-      transferItems = transferItems.concat(items);
+
+    }
+    // ERC1400
+    for (const tokenContractInstance of tokensERC1400) {
+      const eventArr: any = await this.getEventsFromContract(tokenContractInstance, "SentTranche", fromBlock);
+      eventArr.map((eventObj: any) => {
+        const transferItem: pjs.TransferItem = {
+          token: tokenContractInstance.address,
+          from: eventObj.args.from,
+          to: eventObj.args.to,
+          amount: eventObj.args.amount,
+          fromTranche: eventObj.args.fromTranche,
+          toTranche: eventObj.args.toTranche,
+          data: eventObj.args.data,
+        };
+        console.log(transferItem);
+        transferItems.push(transferItem);
+      });
     }
 
     return transferItems;
@@ -199,6 +224,11 @@ export class ExchangeTestUtil {
     order.tokenSFeePercentage = order.tokenSFeePercentage ? order.tokenSFeePercentage : 0;
     order.tokenBFeePercentage = order.tokenBFeePercentage ? order.tokenBFeePercentage : 0;
     order.walletSplitPercentage = order.walletSplitPercentage ? order.walletSplitPercentage : 0;
+    order.tokenTypeS = order.tokenTypeS ? order.tokenTypeS : pjs.TokenType.ERC20;
+    order.tokenTypeB = order.tokenTypeB ? order.tokenTypeB : pjs.TokenType.ERC20;
+    order.tokenTypeFee = order.tokenTypeFee ? order.tokenTypeFee : pjs.TokenType.ERC20;
+    order.trancheS = order.trancheS ? order.trancheS : "0x" + "0".repeat(64);
+    order.trancheB = order.trancheB ? order.trancheB : "0x" + "0".repeat(64);
 
     // setup initial balances:
     await this.setOrderBalances(order);
@@ -207,20 +237,20 @@ export class ExchangeTestUtil {
   public async setOrderBalances(order: pjs.OrderInfo) {
     const tokenS = this.testContext.tokenAddrInstanceMap.get(order.tokenS);
     const balanceS = (order.balanceS !== undefined) ? order.balanceS : order.amountS;
-    await tokenS.setBalance(order.owner, balanceS);
+    await tokenS.setBalance(order.owner, order.trancheS, balanceS);
 
     const feeToken = order.feeToken ? order.feeToken : this.context.lrcAddress;
     const balanceFee = (order.balanceFee !== undefined) ? order.balanceFee : order.feeAmount;
     if (feeToken === order.tokenS) {
-      tokenS.addBalance(order.owner, balanceFee);
+      tokenS.addBalance(order.owner, order.trancheS, balanceFee);
     } else {
       const tokenFee = this.testContext.tokenAddrInstanceMap.get(feeToken);
-      await tokenFee.setBalance(order.owner, balanceFee);
+      await tokenFee.setBalance(order.owner, "0x0", balanceFee);
     }
 
     if (order.balanceB) {
       const tokenB = this.testContext.tokenAddrInstanceMap.get(order.tokenB);
-      await tokenB.setBalance(order.owner, order.balanceB);
+      await tokenB.setBalance(order.owner, order.trancheB, order.balanceB);
     }
   }
 
@@ -304,51 +334,52 @@ export class ExchangeTestUtil {
   }
 
   public assertTransfers(ringsInfo: pjs.RingsInfo,
-                         tranferEvents: Array<[string, string, string, BigNumber]>,
+                         tranferEvents: pjs.TransferItem[],
                          transferList: pjs.TransferItem[]) {
-    const transfersFromSimulator: Array<[string, string, string, BigNumber]> = [];
-    transferList.forEach((item) => transfersFromSimulator.push([item.token, item.from, item.to, item.amount]));
-    const sorter = (a: [string, string, string, BigNumber], b: [string, string, string, BigNumber]) => {
-      if (a[0] === b[0]) {
-        if (a[1] === b[1]) {
-          if (a[2] === b[2]) {
-            return a[3].minus(b[3]).toNumber();
+    const sorter = (a: pjs.TransferItem, b: pjs.TransferItem) => {
+      if (a.token === b.token) {
+        if (a.from === b.from) {
+          if (a.to === b.to) {
+            return a.amount.minus(b.amount).toNumber();
           } else {
-            return a[2] > b[2] ? 1 : -1;
+            return a.to > b.to ? 1 : -1;
           }
         } else {
-          return a[1] > b[1] ? 1 : -1;
+          return a.from > b.from ? 1 : -1;
         }
       } else {
-        return a[0] > b[0] ? 1 : -1;
+        return a.token > b.token ? 1 : -1;
       }
     };
 
-    transfersFromSimulator.sort(sorter);
+    transferList.sort(sorter);
     tranferEvents.sort(sorter);
     const addressBook = this.getAddressBook(ringsInfo);
     pjs.logDebug("transfer items from simulator:");
-    transfersFromSimulator.forEach((t) => {
-      const tokenSymbol = this.testContext.tokenAddrSymbolMap.get(t[0]);
-      const fromName = addressBook[t[1]];
-      const toName = addressBook[t[2]];
-      pjs.logDebug(fromName + " -> " + toName + " : " + t[3].toNumber() / 1e18 + " " + tokenSymbol);
+    transferList.forEach((t) => {
+      const tokenSymbol = this.testContext.tokenAddrSymbolMap.get(t.token);
+      const fromName = addressBook[t.from];
+      const toName = addressBook[t.to];
+      pjs.logDebug(fromName + " -> " + toName + " : " + t.amount.toNumber() / 1e18 + " " + tokenSymbol);
     });
     pjs.logDebug("transfer items from contract:");
     tranferEvents.forEach((t) => {
-      const tokenSymbol = this.testContext.tokenAddrSymbolMap.get(t[0]);
-      const fromName = addressBook[t[1]];
-      const toName = addressBook[t[2]];
-      pjs.logDebug(fromName + " -> " + toName + " : " + t[3].toNumber() / 1e18 + " " + tokenSymbol);
+      const tokenSymbol = this.testContext.tokenAddrSymbolMap.get(t.token);
+      const fromName = addressBook[t.from];
+      const toName = addressBook[t.to];
+      pjs.logDebug(fromName + " -> " + toName + " : " + t.amount.toNumber() / 1e18 + " " + tokenSymbol);
     });
-    assert.equal(tranferEvents.length, transfersFromSimulator.length, "Number of transfers do not match");
+    assert.equal(tranferEvents.length, transferList.length, "Number of transfers do not match");
     for (let i = 0; i < tranferEvents.length; i++) {
       const transferFromEvent = tranferEvents[i];
-      const transferFromSimulator = transfersFromSimulator[i];
-      assert.equal(transferFromEvent[0], transferFromSimulator[0]);
-      assert.equal(transferFromEvent[1], transferFromSimulator[1]);
-      assert.equal(transferFromEvent[2], transferFromSimulator[2]);
-      assert(transferFromEvent[3].eq(transferFromSimulator[3]), "Transfer amount does not match");
+      const transferFromSimulator = transferList[i];
+      assert.equal(transferFromEvent.token, transferFromSimulator.token, "Token mismatch");
+      assert.equal(transferFromEvent.from, transferFromSimulator.from, "From mismatch");
+      assert.equal(transferFromEvent.to, transferFromSimulator.to, "To mismatch");
+      assert(transferFromEvent.amount.eq(transferFromSimulator.amount), "Transfer amount does not match");
+      assert.equal(transferFromEvent.fromTranche, transferFromSimulator.fromTranche, "FromTranche mismatch");
+      assert.equal(transferFromEvent.toTranche, transferFromSimulator.toTranche, "toTranche mismatch");
+      assert.equal(transferFromEvent.data, transferFromSimulator.data, "data mismatch");
     }
   }
 
@@ -488,9 +519,11 @@ export class ExchangeTestUtil {
         const minerFeeRecipient = ringsInfo.feeRecipient ? ringsInfo.feeRecipient : ringsInfo.transactionOrigin;
         // Add balances to the feeHolder contract
         for (const token of tokens) {
-          const Token = this.testContext.tokenAddrInstanceMap.get(token);
-          await Token.setBalance(this.context.feeHolder.address, 1);
-          await Token.addBalance(minerFeeRecipient, 1);
+          if (this.testContext.allERC20Tokens.indexOf(token) > -1) {
+            const Token = this.testContext.tokenAddrInstanceMap.get(token);
+            await Token.setBalance(this.context.feeHolder.address, 1);
+            await Token.addBalance(minerFeeRecipient, 1);
+          }
         }
         // Add a balance to the owner balances
         // const TokenB = this.testContext.tokenAddrInstanceMap.get(order.tokenB);
@@ -539,7 +572,9 @@ export class ExchangeTestUtil {
       tx = await this.ringSubmitter.submitRings(bs, {from: txOrigin});
       pjs.logInfo("\x1b[46m%s\x1b[0m", "gas used: " + tx.receipt.gasUsed);
     }
-    const transferEvents = await this.getTransferEvents(this.testContext.allTokens, web3.eth.blockNumber);
+    const transferEvents = await this.getTransferEvents(this.testContext.allERC20Tokens,
+                                                        this.testContext.allERC1400Tokens,
+                                                        web3.eth.blockNumber);
     this.assertTransfers(deserializedRingsInfo, transferEvents, report.transferItems);
     await this.assertFeeBalances(deserializedRingsInfo, report.feeBalancesBefore, report.feeBalancesAfter);
     await this.assertFilledAmounts(deserializedRingsInfo, report.filledAmounts);
@@ -556,10 +591,16 @@ export class ExchangeTestUtil {
   public async initializeTradeDelegate() {
     await this.context.tradeDelegate.authorizeAddress(this.ringSubmitter.address, {from: this.testContext.deployer});
 
-    for (const token of this.testContext.allTokens) {
+    for (const token of this.testContext.allERC20Tokens) {
       // approve once for all orders:
       for (const orderOwner of this.testContext.orderOwners) {
         await token.approve(this.context.tradeDelegate.address, 1e32, {from: orderOwner});
+      }
+    }
+    for (const token of this.testContext.allERC1400Tokens) {
+      // approve once for all orders:
+      for (const orderOwner of this.testContext.orderOwners) {
+        await token.authorizeOperator(this.context.tradeDelegate.address, {from: orderOwner});
       }
     }
   }
@@ -681,39 +722,45 @@ export class ExchangeTestUtil {
       RDNToken,
       REPToken,
       WETHToken,
+      STAToken,
     } = new Artifacts(artifacts);
 
     const tokenSymbolAddrMap = new Map<string, string>();
     const tokenAddrSymbolMap = new Map<string, string>();
     const tokenAddrInstanceMap = new Map<string, any>();
 
-    const [lrc, gto, rdn, rep, weth] = await Promise.all([
+    const [lrc, gto, rdn, rep, weth, sta] = await Promise.all([
       LRCToken.deployed(),
       GTOToken.deployed(),
       RDNToken.deployed(),
       REPToken.deployed(),
       WETHToken.deployed(),
+      STAToken.deployed(),
     ]);
 
-    const allTokens = [lrc, gto, rdn, rep, weth];
+    const allERC20Tokens = [lrc, gto, rdn, rep, weth];
+    const allERC1400Tokens = [sta];
 
     tokenSymbolAddrMap.set("LRC", LRCToken.address);
     tokenSymbolAddrMap.set("GTO", GTOToken.address);
     tokenSymbolAddrMap.set("RDN", RDNToken.address);
     tokenSymbolAddrMap.set("REP", REPToken.address);
     tokenSymbolAddrMap.set("WETH", WETHToken.address);
+    tokenSymbolAddrMap.set("STA", STAToken.address);
 
     tokenAddrSymbolMap.set(LRCToken.address, "LRC");
     tokenAddrSymbolMap.set(GTOToken.address, "GTO");
     tokenAddrSymbolMap.set(RDNToken.address, "RDN");
     tokenAddrSymbolMap.set(REPToken.address, "REP");
     tokenAddrSymbolMap.set(WETHToken.address, "WETH");
+    tokenAddrSymbolMap.set(STAToken.address, "STA");
 
     tokenAddrInstanceMap.set(LRCToken.address, lrc);
     tokenAddrInstanceMap.set(GTOToken.address, gto);
     tokenAddrInstanceMap.set(RDNToken.address, rdn);
     tokenAddrInstanceMap.set(REPToken.address, rep);
     tokenAddrInstanceMap.set(WETHToken.address, weth);
+    tokenAddrInstanceMap.set(STAToken.address, sta);
 
     const deployer = accounts[0];
     const transactionOrigin = accounts[1];
@@ -737,7 +784,8 @@ export class ExchangeTestUtil {
                                    tokenSymbolAddrMap,
                                    tokenAddrSymbolMap,
                                    tokenAddrInstanceMap,
-                                   allTokens);
+                                   allERC20Tokens,
+                                   allERC1400Tokens);
   }
 
 }

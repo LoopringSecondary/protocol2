@@ -56,7 +56,7 @@ library ExchangeDeserializer {
         }
         uint miningDataPtr = dataPtr + 8;
         uint orderDataPtr = miningDataPtr + 3 * 2;
-        uint ringDataPtr = orderDataPtr + (25 * header.numOrders) * 2;
+        uint ringDataPtr = orderDataPtr + (30 * header.numOrders) * 2;
         uint dataBlobPtr = ringDataPtr + (header.numRings * 9) + 32;
 
         // The data stream needs to be at least large enough for the
@@ -344,6 +344,41 @@ library ExchangeDeserializer {
                     offset
                 )
 
+                // order.tokenTypeS
+                offset := and(mload(add(tablesPtr, 50)), 0xFFFF)
+                mstore(
+                    add(order, 1056),
+                    offset
+                )
+
+                // order.tokenTypeB
+                offset := and(mload(add(tablesPtr, 52)), 0xFFFF)
+                mstore(
+                    add(order, 1088),
+                    offset
+                )
+
+                // order.tokenTypeFee
+                offset := and(mload(add(tablesPtr, 54)), 0xFFFF)
+                mstore(
+                    add(order, 1120),
+                    offset
+                )
+
+                // order.trancheS
+                offset := mul(and(mload(add(tablesPtr, 56)), 0xFFFF), 4)
+                mstore(
+                    add(order, 1152),
+                    mload(add(add(data, 32), offset))
+                )
+
+                // order.trancheB
+                offset := mul(and(mload(add(tablesPtr, 58)), 0xFFFF), 4)
+                mstore(
+                    add(order, 1184),
+                    mload(add(add(data, 32), offset))
+                )
+
                 // Set default  values
                 mstore(add(order,  864), 0)         // order.P2P
                 mstore(add(order,  896), 0)         // order.hash
@@ -353,15 +388,10 @@ library ExchangeDeserializer {
                 mstore(add(order, 1024), 1)         // order.valid
 
                 // Set these to the defaults for now
-                mstore(add(order, 1056), 0)         // order.tokenTypeS
-                mstore(add(order, 1088), 0)         // order.tokenTypeB
-                mstore(add(order, 1120), 0)         // order.tokenTypeFee
-                mstore(add(order, 1152), 0)         // order.trancheS
-                mstore(add(order, 1184), 0)         // order.trancheS
-                mstore(add(order, 1216), emptyBytes)// order.sendDataS
+                mstore(add(order, 1216), emptyBytes)// order.transferDataS
 
                 // Advance to the next order
-                tablesPtr := add(tablesPtr, 50)
+                tablesPtr := add(tablesPtr, 60)
             }
         }
     }
