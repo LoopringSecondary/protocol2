@@ -56,7 +56,7 @@ library ExchangeDeserializer {
         }
         uint miningDataPtr = dataPtr + 8;
         uint orderDataPtr = miningDataPtr + 3 * 2;
-        uint ringDataPtr = orderDataPtr + (30 * header.numOrders) * 2;
+        uint ringDataPtr = orderDataPtr + (31 * header.numOrders) * 2;
         uint dataBlobPtr = ringDataPtr + (header.numRings * 9) + 32;
 
         // The data stream needs to be at least large enough for the
@@ -379,6 +379,19 @@ library ExchangeDeserializer {
                     mload(add(add(data, 32), offset))
                 )
 
+                // Default to empty bytes array for transferDataS
+                mstore(add(data, 32), emptyBytes)
+
+                // order.transferDataS
+                offset := mul(and(mload(add(tablesPtr, 60)), 0xFFFF), 4)
+                mstore(
+                    add(order, 1216),
+                    add(data, add(offset, 32))
+                )
+
+                // Restore default to 0
+                mstore(add(data, 32), 0)
+
                 // Set default  values
                 mstore(add(order,  864), 0)         // order.P2P
                 mstore(add(order,  896), 0)         // order.hash
@@ -387,11 +400,8 @@ library ExchangeDeserializer {
                 mstore(add(order,  992), 0)         // order.initialFilledAmountS
                 mstore(add(order, 1024), 1)         // order.valid
 
-                // Set these to the defaults for now
-                mstore(add(order, 1216), emptyBytes)// order.transferDataS
-
                 // Advance to the next order
-                tablesPtr := add(tablesPtr, 60)
+                tablesPtr := add(tablesPtr, 62)
             }
         }
     }

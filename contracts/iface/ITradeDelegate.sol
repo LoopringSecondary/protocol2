@@ -70,9 +70,9 @@ contract ITradeDelegate {
         external;
 
     function batchTransfer(
-        bytes32[] batch
+        bytes batch
         )
-        external;
+        public;
 
     function batchUpdateFilled(
         bytes32[] filledInfo

@@ -103,32 +103,41 @@ contract TradeDelegate is ITradeDelegate, Claimable, NoDefaultFunc {
     }
 
     function batchTransfer(
-        bytes32[] batch
+        bytes batch
         )
-        external
+        public
         onlyAuthorized
         notSuspended
     {
-        uint length = batch.length;
-        require(length % 6 == 0, INVALID_SIZE);
+        // uint length = batch.length;
+        // require(length % 7 == 0, INVALID_SIZE);
 
-        uint start = 68;
-        uint end = start + length * 32;
-        for (uint p = start; p < end; p += 192) {
+        uint numTransfers;
+        uint batchPtr;
+        assembly {
+            numTransfers := calldataload(68)
+            batchPtr := batch
+        }
+        uint start = batchPtr + 64;
+        uint end = start + batch.length - 32;
+        for (uint p = start; p < end;) {
             address token;
             address from;
             address to;
             uint amount;
             Data.TokenType tokenType;
             bytes32 tranche;
+            bytes memory transferData;
             assembly {
-                token := calldataload(add(p,  0))
-                from := calldataload(add(p, 32))
-                to := calldataload(add(p, 64))
-                amount := calldataload(add(p, 96))
-                tokenType := calldataload(add(p, 128))
-                tranche := calldataload(add(p, 160))
+                token := mload(add(p,  0))
+                from := mload(add(p, 32))
+                to := mload(add(p, 64))
+                amount := mload(add(p, 96))
+                tokenType := mload(add(p, 128))
+                tranche := mload(add(p, 160))
+                transferData := add(p, 192)
             }
+            p += 224 + transferData.length;
             if (tokenType == Data.TokenType.ERC20) {
                 require(
                     token.safeTransferFrom(
@@ -144,7 +153,7 @@ contract TradeDelegate is ITradeDelegate, Claimable, NoDefaultFunc {
                     from,
                     to,
                     amount,
-                    new bytes(0),
+                    transferData,
                     new bytes(0)
                 );
                 require(ESC == 0x01, TRANSFER_FAILURE);

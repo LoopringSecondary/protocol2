@@ -335,7 +335,8 @@ library RingHelper {
             p.order.feeToken,
             p.order.owner,
             address(ctx.feeHolder),
-            amountFeeToFeeHolder
+            amountFeeToFeeHolder,
+            new bytes(0)
         );
         ctx.transferPtr = addTokenTransfer(
             ctx.transferData,
@@ -345,7 +346,8 @@ library RingHelper {
             p.order.tokenS,
             p.order.owner,
             address(ctx.feeHolder),
-            amountSToFeeHolder
+            amountSToFeeHolder,
+            p.order.transferDataS
         );
         ctx.transferPtr = addTokenTransfer(
             ctx.transferData,
@@ -355,7 +357,8 @@ library RingHelper {
             p.order.tokenS,
             p.order.owner,
             prevP.order.tokenRecipient,
-            amountSToBuyer
+            amountSToBuyer,
+            p.order.transferDataS
         );
 
         // Miner (or for P2P the taker) gets the margin without sharing it with the wallet or burning
@@ -367,7 +370,8 @@ library RingHelper {
             p.order.tokenS,
             p.order.owner,
             feeRecipient,
-            margin
+            margin,
+            p.order.transferDataS
         );
 
         // onTokenSpent broker callbacks
@@ -397,7 +401,8 @@ library RingHelper {
         address token,
         address from,
         address to,
-        uint amount
+        uint amount,
+        bytes transferData
         )
         internal
         pure
@@ -407,17 +412,19 @@ library RingHelper {
             assembly {
                 // Try to find an existing fee payment of the same token to the same owner
                 let addNew := 1
-                for { let p := data } lt(p, ptr) { p := add(p, 192) } {
+                for { let p := data } lt(p, ptr) { p := add(p, 224) } {
                     let dataToken := mload(add(p,  0))
                     let dataFrom := mload(add(p, 32))
                     let dataTo := mload(add(p, 64))
-                    let dataTranche := mload(add(p, 160))
+                    // let dataTranche := mload(add(p, 160))
+                    // let dataTransferDataPtr := mload(add(p, 192))
                     // if(token == dataToken && from == dataFrom && to == dataTo && tranche == dataTranche)
-                    if and(and(and(
+                    if and(and(and(and(
                         eq(token, dataToken),
                         eq(from, dataFrom)),
                         eq(to, dataTo)),
-                        eq(tranche, dataTranche)) {
+                        eq(tranche, mload(add(p, 160)))),
+                        eq(transferData, mload(add(p, 192)))) {
                         let dataAmount := mload(add(p, 96))
                         // dataAmount = amount.add(dataAmount);
                         dataAmount := add(amount, dataAmount)
@@ -433,13 +440,14 @@ library RingHelper {
                 }
                 // Add a new transfer
                 if eq(addNew, 1) {
-                    mstore(add(ptr,  0), token)
-                    mstore(add(ptr, 32), from)
-                    mstore(add(ptr, 64), to)
-                    mstore(add(ptr, 96), amount)
+                    mstore(add(ptr,   0), token)
+                    mstore(add(ptr,  32), from)
+                    mstore(add(ptr,  64), to)
+                    mstore(add(ptr,  96), amount)
                     mstore(add(ptr, 128), tokenType)
                     mstore(add(ptr, 160), tranche)
-                    ptr := add(ptr, 192)
+                    mstore(add(ptr, 192), transferData)
+                    ptr := add(ptr, 224)
                 }
             }
             return ptr;

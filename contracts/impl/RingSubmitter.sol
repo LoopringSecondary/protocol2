@@ -398,7 +398,7 @@ contract RingSubmitter is IRingSubmitter, NoDefaultFunc {
         for (uint i = 0; i < rings.length; i++) {
             // Up to 4 transfers per order
             // (6 x 32 bytes for every transfer)
-            uint maxSize = 4 * rings[i].size * 6;
+            uint maxSize = 4 * rings[i].size * 7;
             totalMaxSizeTransfers += maxSize;
         }
         // Store the data directly in the call data format as expected by batchTransfer:
@@ -565,19 +565,49 @@ contract RingSubmitter is IRingSubmitter, NoDefaultFunc {
         // The only thing we still need to do is update the final length of the array and call
         // the function on the FeeHolder contract with the generated data.
         address _tradeDelegateAddress = address(ctx.delegate);
-        uint arrayLength = (ctx.transferPtr - ctx.transferData) / 32;
+        bytes4 batchTransferSelector = ctx.delegate.batchTransfer.selector;
+        uint arrayLength = (ctx.transferPtr - ctx.transferData);
         uint data = ctx.transferData - 68;
         uint ptr = ctx.transferPtr;
+        uint numTransfers = arrayLength / 7;
         assembly {
-            mstore(add(data, 36), arrayLength)      // length
+
+            let newData := mload(0x40)
+            mstore(newData, batchTransferSelector)
+            mstore(add(newData,  4), 32)
+            let newDataStart := add(newData, 68)
+            let newDataPtr := add(newData, 100)
+            for { let p := add(data, 68) } lt(p, ptr) { p := add(p, 224) } {
+                mstore(add(newDataPtr,   0), mload(add(p,   0)))
+                mstore(add(newDataPtr,  32), mload(add(p,  32)))
+                mstore(add(newDataPtr,  64), mload(add(p,  64)))
+                mstore(add(newDataPtr,  96), mload(add(p,  96)))
+                mstore(add(newDataPtr, 128), mload(add(p, 128)))
+                mstore(add(newDataPtr, 160), mload(add(p, 160)))
+
+                // Copy the transfer data
+                let transferData := mload(add(p, 192))
+                let numBytes := add(32, mload(transferData))
+                let transferDataPtr := add(newDataPtr, 192)
+                for { let b := 0 } lt(b, numBytes) { b := add(b, 32) } {
+                    mstore(transferDataPtr, mload(transferData))
+                    transferDataPtr := add(transferDataPtr, 32)
+                    transferData := add(transferData, 32)
+                }
+
+                newDataPtr := add(newDataPtr, add(192, numBytes))
+            }
+            mstore(add(newData, 36), sub(newDataPtr, newDataStart))         // length
+            mstore(add(newData, 68), numTransfers)
+            mstore(0x40, newDataPtr)
 
             let success := call(
                 gas,                                // forward all gas
                 _tradeDelegateAddress,              // external address
                 0,                                  // wei
-                data,                               // input start
-                sub(ptr, data),                     // input length
-                data,                               // output start
+                newData,                            // input start
+                sub(newDataPtr, newData),           // input length
+                newData,                            // output start
                 32                                  // output length
             )
             if eq(success, 0) {

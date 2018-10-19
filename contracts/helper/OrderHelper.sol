@@ -64,8 +64,15 @@ library OrderHelper {
             // Load the free memory pointer
             let ptr := mload(64)
 
+            // Calculate the hash for transferDataS separately
+            let transferDataS := mload(add(order, 1216))             // order.transferDataS
+            let transferDataSHash := keccak256(add(transferDataS, 32), mload(transferDataS))
+
             // We store the members back to front so we can overwrite data for members smaller than 32
             // (mstore always writes 32 bytes)
+            mstore(add(ptr, sub(413,  0)), transferDataSHash)
+            mstore(add(ptr, sub(381,  0)), mload(add(order, 1184)))  // order.trancheB
+            mstore(add(ptr, sub(349,  0)), mload(add(order, 1152)))  // order.trancheS
             mstore(add(ptr, sub(348, 31)), mload(add(order, 576)))   // order.allOrNone
             mstore(add(ptr, sub(346, 30)), mload(add(order, 768)))   // order.tokenBFeePercentage
             mstore(add(ptr, sub(344, 30)), mload(add(order, 736)))   // order.tokenSFeePercentage
@@ -86,7 +93,7 @@ library OrderHelper {
             mstore(add(ptr, sub( 32,  0)), mload(add(order, 160)))   // order.amountB
             mstore(add(ptr, sub(  0,  0)), mload(add(order, 128)))   // order.amountS
 
-            hash := keccak256(ptr, 349)  // 5*32 + 9*20 + 4*2 + 1*1
+            hash := keccak256(ptr, 445)  // 8*32 + 9*20 + 4*2 + 1*1
         }
         order.hash = hash;
     }

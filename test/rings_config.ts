@@ -2139,6 +2139,7 @@ export const ringsInfoList: RingsInfo[] = [
         tokenS: "STA",
         trancheS: "0x" + "ab".repeat(32),
         tokenTypeS: TokenType.ERC1400,
+        transferDataS: "0x0123456789abcdef",
         tokenB: "WETH",
         amountS: 3e18,
         amountB: 1e18,

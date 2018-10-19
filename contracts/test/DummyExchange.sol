@@ -59,7 +59,7 @@ contract DummyExchange {
     }
 
     function batchTransfer(
-        bytes32[] data
+        bytes data
         )
         public
     {
