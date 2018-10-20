@@ -2247,4 +2247,102 @@ export const ringsInfoList: RingsInfo[] = [
       ],
     },
   },
+
+  {
+    description: "single 2-size ring, selling ERC1400 token, tranche mismatch",
+    rings: [[0, 1]],
+    orders: [
+      {
+        index: 0,
+        tokenS: "STA",
+        trancheS: "0x" + "ab".repeat(32),
+        tokenTypeS: TokenType.ERC1400,
+        transferDataS: "0x0123456789abcdef",
+        tokenB: "WETH",
+        amountS: 3e18,
+        amountB: 1e18,
+      },
+      {
+        index: 1,
+        tokenS: "WETH",
+        tokenB: "STA",
+        trancheB: "0x" + "cd".repeat(32),
+        tokenTypeB: TokenType.ERC1400,
+        amountS: 1e18,
+        amountB: 3e18,
+      },
+    ],
+    expected: {
+      rings: [
+        {
+          fail: true,
+        },
+      ],
+    },
+  },
+
+  {
+    description: "single 2-size ring, try to pay fees in ERC1400",
+    rings: [[0, 1]],
+    orders: [
+      {
+        index: 0,
+        tokenS: tokenSymbols[0],
+        tokenB: tokenSymbols[1],
+        amountS: 3e18,
+        amountB: 1e18,
+        feeToken: "STA",
+        tokenTypeFee: TokenType.ERC1400,
+      },
+      {
+        index: 1,
+        tokenS: tokenSymbols[1],
+        tokenB: tokenSymbols[0],
+        amountS: 1e18,
+        amountB: 3e18,
+      },
+    ],
+    expected: {
+      rings: [
+        {
+          fail: true,
+        },
+      ],
+    },
+  },
+
+  {
+    description: "P2P: single 2-size ring, try to pay fees in ERC1400",
+    rings: [[0, 1]],
+    orders: [
+      {
+        index: 0,
+        tokenS: "STA",
+        trancheS: "0x" + "ab".repeat(32),
+        tokenTypeS: TokenType.ERC1400,
+        transferDataS: "0x0123456789abcdef",
+        tokenB: "WETH",
+        amountS: 3e18,
+        amountB: 1e18,
+        tokenSFeePercentage: 50,
+      },
+      {
+        index: 1,
+        tokenS: "WETH",
+        tokenB: "STA",
+        trancheB: "0x" + "cd".repeat(32),
+        tokenTypeB: TokenType.ERC1400,
+        amountS: 1e18,
+        amountB: 3e18,
+        tokenBFeePercentage: 50,
+      },
+    ],
+    expected: {
+      rings: [
+        {
+          fail: true,
+        },
+      ],
+    },
+  },
 ];

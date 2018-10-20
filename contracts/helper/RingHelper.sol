@@ -417,16 +417,20 @@ library RingHelper {
                 for { let p := data } lt(p, ptr) { p := add(p, 224) } {
                     let dataToken := mload(add(p,  0))
                     let dataFrom := mload(add(p, 32))
-                    let dataTo := mload(add(p, 64))
+                    // let dataTo := mload(add(p, 64))
                     // let dataTranche := mload(add(p, 160))
-                    // let dataTransferDataPtr := mload(add(p, 192))
-                    // if(token == dataToken && from == dataFrom && to == dataTo && tranche == dataTranche)
+                    let dataTransferData := mload(add(p, 192))
+                    // if(token == dataToken && from == dataFrom && to == dataTo &&
+                    //    tranche == dataTranche && transferData == dataTransferData)
                     if and(and(and(and(
                         eq(token, dataToken),
                         eq(from, dataFrom)),
-                        eq(to, dataTo)),
+                        eq(to, mload(add(p, 64)))),
                         eq(tranche, mload(add(p, 160)))),
-                        eq(transferData, mload(add(p, 192)))) {
+                        or(
+                            and(iszero(mload(transferData)), iszero(mload(dataTransferData))),
+                            eq(transferData, dataTransferData)
+                        )) {
                         let dataAmount := mload(add(p, 96))
                         // dataAmount = amount.add(dataAmount);
                         dataAmount := add(amount, dataAmount)
