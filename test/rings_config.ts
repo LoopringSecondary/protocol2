@@ -2249,6 +2249,87 @@ export const ringsInfoList: RingsInfo[] = [
   },
 
   {
+    description: "single 2-size ring, selling ERC1400 token in different tranches",
+    rings: [[0, 1], [2, 3]],
+    orders: [
+      {
+        index: 0,
+        owner: "0",
+        tokenS: "STA",
+        trancheS: "0x" + "ab".repeat(32),
+        tokenTypeS: TokenType.ERC1400,
+        tokenB: "WETH",
+        amountS: 3e18,
+        amountB: 1e18,
+        balanceFee: 2e18,
+      },
+      {
+        index: 1,
+        owner: "1",
+        tokenS: "WETH",
+        tokenB: "STA",
+        trancheB: "0x" + "ab".repeat(32),
+        tokenTypeB: TokenType.ERC1400,
+        amountS: 1e18,
+        amountB: 3e18,
+        balanceS: 2e18,
+        balanceFee: 2e18,
+      },
+      {
+        index: 2,
+        owner: "0",
+        tokenS: "STA",
+        trancheS: "0x" + "cd".repeat(32),
+        tokenTypeS: TokenType.ERC1400,
+        tokenB: "WETH",
+        amountS: 3e18,
+        amountB: 1e18,
+        balanceFee: 2e18,
+      },
+      {
+        index: 3,
+        owner: "1",
+        tokenS: "WETH",
+        tokenB: "STA",
+        trancheB: "0x" + "cd".repeat(32),
+        tokenTypeB: TokenType.ERC1400,
+        amountS: 1e18,
+        amountB: 3e18,
+        balanceS: 2e18,
+        balanceFee: 2e18,
+      },
+    ],
+    expected: {
+      rings: [
+        {
+          orders: [
+            {
+              filledFraction: 1.0,
+              margin: 0,
+            },
+            {
+              filledFraction: 1.0,
+              margin: 0,
+            },
+          ],
+        },
+        {
+          orders: [
+            {
+              filledFraction: 1.0,
+              margin: 0,
+            },
+            {
+              filledFraction: 1.0,
+              margin: 0,
+            },
+          ],
+        },
+      ],
+    },
+  },
+
+  {
     description: "single 2-size ring, selling ERC1400 token, tranche mismatch",
     rings: [[0, 1]],
     orders: [

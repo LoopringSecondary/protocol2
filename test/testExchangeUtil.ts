@@ -46,6 +46,7 @@ export class ExchangeTestUtil {
 
   public async getTransferEvents(tokensERC20: any[], tokensERC1400: any[], fromBlock: number) {
     const transferItems: pjs.TransferItem[] = [];
+    const zeroAddress = "0x" + "0".repeat(64);
     // ERC20
     for (const tokenContractInstance of tokensERC20) {
       const eventArr: any = await this.getEventsFromContract(tokenContractInstance, "Transfer", fromBlock);
@@ -55,6 +56,8 @@ export class ExchangeTestUtil {
           from: eventObj.args.from,
           to: eventObj.args.to,
           amount: eventObj.args.value,
+          fromTranche: zeroAddress,
+          toTranche: zeroAddress,
         };
         console.log(transferItem);
         transferItems.push(transferItem);
