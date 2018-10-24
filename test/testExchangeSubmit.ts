@@ -299,14 +299,14 @@ contract("Exchange_Submit", (accounts: string[]) => {
 
       // Orders will be filled 50%
       const {tx, report} = await exchangeTestUtil.submitRingsAndSimulate(ringsInfo);
-      const feeReceivedMiner0 = report.feeBalancesAfter[order0.feeToken][feeRecipient]
-                                      .minus(report.feeBalancesBefore[order0.feeToken][feeRecipient]);
-      const feeReceivedWallet0 = report.feeBalancesAfter[order0.feeToken][order0.walletAddr]
-                                       .minus(report.feeBalancesBefore[order0.feeToken][order0.walletAddr]);
-      const feeReceivedMiner1 = report.feeBalancesAfter[order1.feeToken][feeRecipient]
-                                      .minus(report.feeBalancesBefore[order1.feeToken][feeRecipient]);
-      const feeReceivedWallet1 = report.feeBalancesAfter[order1.feeToken][order1.walletAddr]
-                                       .minus(report.feeBalancesBefore[order1.feeToken][order1.walletAddr]);
+      const feeReceivedMiner0 = report.feeBalancesAfter.getBalance(feeRecipient, order0.feeToken)
+                                .minus(report.feeBalancesBefore.getBalance(feeRecipient, order0.feeToken));
+      const feeReceivedWallet0 = report.feeBalancesAfter.getBalance(order0.walletAddr, order0.feeToken)
+                                 .minus(report.feeBalancesBefore.getBalance(order0.walletAddr, order0.feeToken));
+      const feeReceivedMiner1 = report.feeBalancesAfter.getBalance(feeRecipient, order1.feeToken)
+                                .minus(report.feeBalancesBefore.getBalance(feeRecipient, order1.feeToken));
+      const feeReceivedWallet1 = report.feeBalancesAfter.getBalance(order1.walletAddr, order1.feeToken)
+                                 .minus(report.feeBalancesBefore.getBalance(order1.walletAddr, order1.feeToken));
       // Wallet percentage split is 25% so miner gets 3x the fee as the wallet
       assert.equal(feeReceivedMiner0.toNumber(), 3 * feeReceivedWallet0.toNumber(),
                    "Wallet fee == Miner fee");

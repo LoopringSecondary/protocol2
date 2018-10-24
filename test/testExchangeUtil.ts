@@ -383,23 +383,22 @@ export class ExchangeTestUtil {
   }
 
   public async assertFeeBalances(ringsInfo: pjs.RingsInfo,
-                                 feeBalancesBefore: { [id: string]: any; },
-                                 feeBalancesAfter: { [id: string]: any; }) {
+                                 feeBalancesBefore: pjs.BalanceBook,
+                                 feeBalancesAfter: pjs.BalanceBook) {
     const addressBook = this.getAddressBook(ringsInfo);
     pjs.logDebug("Fee balances:");
-    for (const token of Object.keys(feeBalancesAfter)) {
-      for (const owner of Object.keys(feeBalancesAfter[token])) {
-        const balanceFromSimulator = feeBalancesAfter[token][owner];
-        const balanceFromContract = await this.context.feeHolder.feeBalances(token, owner);
-        if (!feeBalancesBefore[token][owner].eq(feeBalancesAfter[token][owner])) {
-          const ownerName = addressBook[owner] ? addressBook[owner] : owner;
-          const tokenSymbol = this.testContext.tokenAddrSymbolMap.get(token);
-          pjs.logDebug(ownerName + ": " +
-                      balanceFromContract  / 1e18 + " " + tokenSymbol + " " +
-                      "(Simulator: " + balanceFromSimulator  / 1e18 + ")");
-        }
-        assert(balanceFromContract.eq(balanceFromSimulator));
+    for (const balance of feeBalancesAfter.getAllBalances()) {
+      const balanceBefore = feeBalancesBefore.getBalance(balance.owner, balance.token, balance.tranche);
+      const balanceFromSimulator = feeBalancesAfter.getBalance(balance.owner, balance.token, balance.tranche);
+      const balanceFromContract = await this.context.feeHolder.feeBalances(balance.token, balance.owner);
+      if (!balanceBefore.eq(balanceFromSimulator)) {
+        const ownerName = addressBook[balance.owner] ? addressBook[balance.owner] : balance.owner;
+        const tokenSymbol = this.testContext.tokenAddrSymbolMap.get(balance.token);
+        pjs.logDebug(ownerName + ": " +
+                     balanceFromContract  / 1e18 + " " + tokenSymbol + " " +
+                     "(Simulator: " + balanceFromSimulator  / 1e18 + ")");
       }
+      assert(balanceFromContract.eq(balanceFromSimulator));
     }
   }
 
@@ -544,15 +543,16 @@ export class ExchangeTestUtil {
                                                    this.testContext.transactionOrigin;
     const deserializedRingsInfo = simulator.deserialize(bs, txOrigin);
     this.assertEqualsRingsInfo(deserializedRingsInfo, ringsInfo);
-    let report: any = {
+    const filledAmounts: { [hash: string]: BigNumber; } = {};
+    let report: pjs.SimulatorReport = {
       reverted: true,
       ringMinedEvents: [],
       transferItems: [],
-      feeBalancesBefore: [],
-      feeBalancesAfter: [],
-      filledAmounts: [],
-      balancesBefore: [],
-      balancesAfter: [],
+      feeBalancesBefore: new pjs.BalanceBook(),
+      feeBalancesAfter: new pjs.BalanceBook(),
+      filledAmounts,
+      balancesBefore: new pjs.BalanceBook(),
+      balancesAfter: new pjs.BalanceBook(),
       payments: {rings: []},
     };
     let tx = null;
