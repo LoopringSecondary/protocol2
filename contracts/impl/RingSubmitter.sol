@@ -165,7 +165,7 @@ contract RingSubmitter is IRingSubmitter, NoDefaultFunc {
 
         mining.updateHash(rings);
         mining.updateMinerAndInterceptor();
-        require(mining.checkMinerSignature(), INVALID_SIG);
+        // require(mining.checkMinerSignature(), INVALID_SIG);
 
         for (i = 0; i < orders.length; i++) {
             // We don't need to verify the dual author signature again if it uses the same

@@ -1,3 +1,5 @@
+import { assetDataUtils as ZrxAssetDataUtils, Order as ZrxOrder, orderHashUtils as ZrxOrderHashUtils,
+         SignatureType as ZrxSignatureType, signatureUtils as ZrxSignatureUtils } from "@0x/order-utils";
 import { BigNumber } from "bignumber.js";
 import BN = require("bn.js");
 import * as pjs from "protocol2-js";
@@ -229,7 +231,7 @@ export class ExchangeTestUtil {
       order.tokenRecipient = this.testContext.allOrderTokenRecipients[accountIndex];
     }
     // Fill in defaults (default, so these will not get serialized)
-    order.version = 0;
+    order.version = order.version ? order.version : 0;
     order.validUntil = order.validUntil ? order.validUntil : 0;
     order.tokenRecipient = order.tokenRecipient ? order.tokenRecipient : order.owner;
     order.feeToken = order.feeToken ? order.feeToken : this.context.lrcAddress;
@@ -715,6 +717,53 @@ export class ExchangeTestUtil {
                                    ringIndex);
 
     await this.initializeTradeDelegate();
+  }
+
+  public async createZrxOrder(order: pjs.OrderInfo) {
+    const zeroAddress = "0x" + "0".repeat(40);
+    const zrxExchangeAddress = "0x48bacb9266a570d521063ef5dd96e61686dbe788";
+
+    const makerAssetData = ZrxAssetDataUtils.encodeERC20AssetData(order.tokenS);
+    const takerAssetData = ZrxAssetDataUtils.encodeERC20AssetData(order.tokenB);
+
+    const expirationTimeSeconds = order.validUntil ? new BigNumber(order.validUntil - order.validSince)
+                                                   : new BigNumber(0);
+    const order0x: ZrxOrder = {
+      senderAddress: zeroAddress,
+      makerAddress: order.owner,
+      takerAddress: zeroAddress,                          // Open orderbook
+      makerFee: new BigNumber(order.feeAmount),
+      takerFee: new BigNumber(0),
+      makerAssetAmount: new BigNumber(order.amountS),
+      takerAssetAmount: new BigNumber(order.amountB),
+      makerAssetData,
+      takerAssetData,
+      salt: new BigNumber(order.validSince),
+      exchangeAddress: zrxExchangeAddress,
+      feeRecipientAddress: order.walletAddr,
+      expirationTimeSeconds,
+    };
+    // 0x order hash and signature
+    const orderHash0x = ZrxOrderHashUtils.getOrderHashHex(order0x);
+    const signature0x = await ZrxSignatureUtils.ecSignHashAsync(web3.currentProvider, orderHash0x, order.owner);
+
+    const zrxSignatureToLoopring = (zrxSignature: string) => {
+      // 0x eth_sign signatures are encoded like this: [v, r, s, signatureType]
+      // Loopring eth_sign signatures are encoded like this: [signatureType, signatureLength, v, r, s]
+      const signatureType = parseInt(zrxSignature.slice(-2), 10);
+      // Only eth_sign supported for now
+      assert.equal(signatureType, ZrxSignatureType.EthSign, "0x signature type needs to be supported");
+      const signature = new pjs.Bitstream();
+      signature.addNumber(pjs.SignAlgorithm.Ethereum, 1);
+      signature.addNumber(1 + 32 + 32, 1);
+      signature.addHex(zrxSignature.slice(0, -2));
+      return signature.getData();
+    };
+
+    // 0x orders are currently tagged as order version 1
+    order.version = 1;
+    // 0x signature in a loopring compatible format
+    order.sig = zrxSignatureToLoopring(signature0x);
   }
 
   // private functions:

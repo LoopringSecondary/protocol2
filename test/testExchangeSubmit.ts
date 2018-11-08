@@ -668,6 +668,34 @@ contract("Exchange_Submit", (accounts: string[]) => {
       );
     });
 
+    it.only("should be able to trade with 0x orders", async () => {
+      const ringsInfo: pjs.RingsInfo = {
+        rings: [[0, 1]],
+        orders: [
+          {
+            tokenS: "WETH",
+            tokenB: "LRC",
+            amountS: 10e18,
+            amountB: 10e18,
+            dualAuthSignAlgorithm: pjs.SignAlgorithm.None,
+            walletSplitPercentage: 100,
+          },
+          {
+            tokenS: "LRC",
+            tokenB: "WETH",
+            amountS: 10e18,
+            amountB: 10e18,
+            dualAuthSignAlgorithm: pjs.SignAlgorithm.None,
+          },
+        ],
+      };
+      await exchangeTestUtil.setupRings(ringsInfo);
+      await exchangeTestUtil.createZrxOrder(ringsInfo.orders[0]);
+      ringsInfo.sig = undefined;
+      await exchangeTestUtil.setupRings(ringsInfo);
+      await exchangeTestUtil.submitRingsAndSimulate(ringsInfo);
+    });
+
   });
 
 });

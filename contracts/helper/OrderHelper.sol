@@ -31,7 +31,54 @@ library OrderHelper {
     using MathUint      for uint;
     using BrokerInterceptorProxy for address;
 
+    // Data to calculate 0x order hashes
+    address constant internal ZRX_EXCHANGE_ADDRESS = 0x48BaCB9266a570d521063EF5dD96e61686DbE788;
+    string constant internal EIP191_HEADER = "\x19\x01";
+    string constant internal ZRX_EIP712_DOMAIN_NAME = "0x Protocol";
+    string constant internal ZRX_EIP712_DOMAIN_VERSION = "2";
+    bytes32 constant internal ZRX_EIP712_DOMAIN_SEPARATOR_SCHEMA_HASH = keccak256(
+        abi.encodePacked(
+            "EIP712Domain(",
+            "string name,",
+            "string version,",
+            "address verifyingContract",
+            ")"
+        )
+    );
+    bytes32 constant internal ZRX_EIP712_ORDER_SCHEMA_HASH = keccak256(
+        abi.encodePacked(
+            "Order(",
+            "address makerAddress,",
+            "address takerAddress,",
+            "address feeRecipientAddress,",
+            "address senderAddress,",
+            "uint256 makerAssetAmount,",
+            "uint256 takerAssetAmount,",
+            "uint256 makerFee,",
+            "uint256 takerFee,",
+            "uint256 expirationTimeSeconds,",
+            "uint256 salt,",
+            "bytes makerAssetData,",
+            "bytes takerAssetData",
+            ")"
+        )
+    );
+
     function updateHash(Data.Order order)
+        internal
+        pure
+    {
+        if (order.version == 0) {
+            calculateHash(order);
+        } else if(order.version == 1) {
+            calculateZrxHash(order);
+        } else {
+            require(false, "INVALID_ORDER_VERSION");
+        }
+    }
+
+
+    function calculateHash(Data.Order order)
         internal
         pure
     {
@@ -88,6 +135,71 @@ library OrderHelper {
         order.hash = hash;
     }
 
+    function calculateZrxHash(Data.Order order)
+        internal
+        pure
+    {
+        // ERC20 tokens are stored like this in 0x orders:
+        // abi.simpleEncode('ERC20Token(address)', tokenAddress)
+        bytes32 makerAssetDataHash;
+        bytes32 takerAssetDataHash;
+        assembly {
+            let data := mload(0x40)
+            mstore(data, 36)
+            data := add(data, 32)
+            mstore(data, 0xf47261b000000000000000000000000000000000000000000000000000000000)
+            mstore(add(data, 4), mload(add(order, 64)))                                // order.tokenS
+            makerAssetDataHash := keccak256(data, 36)
+            mstore(add(data, 4), mload(add(order, 96)))                                // order.tokenB
+            takerAssetDataHash := keccak256(data, 36)
+        }
+
+        order.hash = keccak256(
+            abi.encodePacked(
+                ZRX_EIP712_ORDER_SCHEMA_HASH,
+                bytes32(order.owner),                                                  // makerAddress
+                bytes32(0x0),                                                          // takerAddress
+                bytes32(order.wallet),                                                 // feeRecipientAddress
+                bytes32(0x0),                                                          // senderAddress
+                order.amountS,                                                         // makerAssetAmount
+                order.amountB,                                                         // takerAssetAmount
+                order.feeAmount,                                                       // makerFee
+                uint(0),                                                               // takerFee
+                (order.validUntil == 0) ? 0 : order.validUntil - order.validSince,     // expirationTimeSeconds
+                order.validSince,                                                      // salt
+                makerAssetDataHash,                                                    // keccak256(makerAssetData)
+                takerAssetDataHash                                                     // keccak256(takerAssetData)
+            )
+        );
+
+        bytes32 domainHash = keccak256(
+            abi.encodePacked(
+                ZRX_EIP712_DOMAIN_SEPARATOR_SCHEMA_HASH,
+                keccak256(bytes(ZRX_EIP712_DOMAIN_NAME)),
+                keccak256(bytes(ZRX_EIP712_DOMAIN_VERSION)),
+                bytes32(ZRX_EXCHANGE_ADDRESS)
+            )
+        );
+        order.hash = keccak256(
+            abi.encodePacked(
+                EIP191_HEADER,
+                domainHash,
+                order.hash
+            )
+        );
+
+        // Verify order data not contained in 0x order hashes to ensure
+        // 0x exchange like behaviour for the order
+        order.valid = order.valid && (order.tokenRecipient == order.owner);
+        // order.valid = order.valid && (order.feeToken == ctx.zrxTokenAddress);
+        order.valid = order.valid && (order.walletSplitPercentage == 100);
+        order.valid = order.valid && (order.dualAuthAddr == 0x0);
+        order.valid = order.valid && (order.broker == 0x0);
+        order.valid = order.valid && (order.allOrNone == false);
+        order.valid = order.valid && (order.tokenSFeePercentage == 0);
+        order.valid = order.valid && (order.tokenBFeePercentage == 0);
+    }
+
     function updateBrokerAndInterceptor(
         Data.Order order,
         Data.Context ctx
@@ -134,7 +246,7 @@ library OrderHelper {
         view
     {
         bool valid = true;
-        valid = valid && (order.version == 0); // unsupported order version
+        // valid = valid && (order.version == 0); // unsupported order version
         valid = valid && (order.owner != 0x0); // invalid order owner
         valid = valid && (order.tokenS != 0x0); // invalid order tokenS
         valid = valid && (order.tokenB != 0x0); // invalid order tokenB
