@@ -14,6 +14,7 @@ const {
   GTOToken,
   RDNToken,
   REPToken,
+  TESTToken,
 } = new Artifacts(artifacts);
 
 contract("FeeHolder", (accounts: string[]) => {
@@ -32,6 +33,9 @@ contract("FeeHolder", (accounts: string[]) => {
   let token2: string;
   let token3: string;
   let token4: string;
+
+  let TestToken: any;
+  let testToken: string;
 
   const authorizeAddressChecked = async (address: string, transcationOrigin: string) => {
     await tradeDelegate.authorizeAddress(address, {from: transcationOrigin});
@@ -119,6 +123,9 @@ contract("FeeHolder", (accounts: string[]) => {
     dummyBurnManager = await DummyBurnManager.new(feeHolder.address);
     await authorizeAddressChecked(dummyExchange.address, deployer);
     await authorizeAddressChecked(dummyBurnManager.address, deployer);
+
+    TestToken = await TESTToken.new();
+    testToken = TestToken.address;
   });
 
   describe("authorized address", () => {
@@ -163,7 +170,7 @@ contract("FeeHolder", (accounts: string[]) => {
       feePayments.add(user2, token2, 3.21 * 1e19);
       const batch = feePayments.getData();
       batch.pop();
-      await expectThrow(dummyExchange.batchAddFeeBalances(batch));
+      await expectThrow(dummyExchange.batchAddFeeBalances(batch), "INVALID_SIZE");
     });
   });
 
@@ -219,11 +226,11 @@ contract("FeeHolder", (accounts: string[]) => {
       // Withdraw half the available balance
       await withdrawTokenChecked(user1, token1, amount / 2);
       // Amount is greater than what's available
-      await expectThrow(withdrawTokenChecked(user1, token1, amount));
+      await expectThrow(withdrawTokenChecked(user1, token1, amount), "INVALID_VALUE");
       // Other user shouldn't be able to withdraw those funds
-      await expectThrow(withdrawTokenChecked(user2, token1, amount / 2));
+      await expectThrow(withdrawTokenChecked(user2, token1, amount / 2), "INVALID_VALUE");
       // User shouldn't be able to withdraw tokens it didn't get paid
-      await expectThrow(withdrawTokenChecked(user1, token2, amount));
+      await expectThrow(withdrawTokenChecked(user1, token2, amount), "INVALID_VALUE");
     });
 
     it("should not be able to withdraw tokens to burn", async () => {
@@ -237,15 +244,70 @@ contract("FeeHolder", (accounts: string[]) => {
       await batchAddFeeBalancesChecked(feePayments);
 
       // Try to withdraw the tokens to burn
-      await expectThrow(feeHolder.withdrawBurned(token1, amount, {from: user1}));
+      await expectThrow(feeHolder.withdrawBurned(token1, amount, {from: user1}), "UNAUTHORIZED");
     });
 
     it("should not be able to add fee balances", async () => {
       const feePayments = new FeePayments();
       feePayments.add(user1, token1, 1.23 * 1e18);
       feePayments.add(user2, token2, 3.21 * 1e19);
-      await expectThrow(feeHolder.batchAddFeeBalances(feePayments.getData(), {from: user1}));
+      await expectThrow(feeHolder.batchAddFeeBalances(feePayments.getData(), {from: user1}), "UNAUTHORIZED");
     });
+
+    describe("Bad ERC20 tokens", () => {
+      it("withdrawToken should succeed when a token transfer does not throw and returns nothing", async () => {
+        const amount = 1e18;
+        // Make sure the contract has enough funds
+        await TestToken.setBalance(feeHolder.address, amount);
+
+        const feePayments = new FeePayments();
+        feePayments.add(user1, testToken, amount);
+        await batchAddFeeBalancesChecked(feePayments);
+
+        await TestToken.setTestCase(await TestToken.TEST_NO_RETURN_VALUE());
+        await withdrawTokenChecked(user1, testToken, amount);
+      });
+
+      it("withdrawToken should fail when a token transfer 'require' fails", async () => {
+        const amount = 1e18;
+        // Make sure the contract has enough funds
+        await TestToken.setBalance(feeHolder.address, amount);
+
+        const feePayments = new FeePayments();
+        feePayments.add(user1, testToken, amount);
+        await batchAddFeeBalancesChecked(feePayments);
+
+        await TestToken.setTestCase(await TestToken.TEST_REQUIRE_FAIL());
+        await expectThrow(withdrawTokenChecked(user1, testToken, amount), "TRANSFER_FAILURE");
+      });
+
+      it("withdrawToken should fail when a token transfer returns false", async () => {
+        const amount = 1e18;
+        // Make sure the contract has enough funds
+        await TestToken.setBalance(feeHolder.address, amount);
+
+        const feePayments = new FeePayments();
+        feePayments.add(user1, testToken, amount);
+        await batchAddFeeBalancesChecked(feePayments);
+
+        await TestToken.setTestCase(await TestToken.TEST_RETURN_FALSE());
+        await expectThrow(withdrawTokenChecked(user1, testToken, amount), "TRANSFER_FAILURE");
+      });
+
+      it("withdrawToken should fail when a token transfer returns more than 32 bytes", async () => {
+        const amount = 1e18;
+        // Make sure the contract has enough funds
+        await TestToken.setBalance(feeHolder.address, amount);
+
+        const feePayments = new FeePayments();
+        feePayments.add(user1, testToken, amount);
+        await batchAddFeeBalancesChecked(feePayments);
+
+        await TestToken.setTestCase(await TestToken.TEST_INVALID_RETURN_SIZE());
+        await expectThrow(withdrawTokenChecked(user1, testToken, amount), "TRANSFER_FAILURE");
+      });
+    });
+
   });
 
 });

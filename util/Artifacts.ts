@@ -19,6 +19,7 @@ export class Artifacts {
   public REPToken: any;
   public WETHToken: any;
   public STAToken: any;
+  public TESTToken: any;
   public DeserializerTest: any;
   constructor(artifacts: any) {
     this.RingSubmitter = artifacts.require("impl/RingSubmitter");
@@ -40,6 +41,7 @@ export class Artifacts {
     this.REPToken = artifacts.require("test/tokens/REP");
     this.WETHToken = artifacts.require("test/tokens/WETH");
     this.STAToken = artifacts.require("test/tokens/STA");
+    this.TESTToken = artifacts.require("test/tokens/TEST");
     this.DeserializerTest = artifacts.require("test/DeserializerTest");
   }
 }

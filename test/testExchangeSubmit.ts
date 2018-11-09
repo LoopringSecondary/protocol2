@@ -8,7 +8,10 @@ const {
   DummyExchange,
   OrderBook,
   OrderRegistry,
+  TESTToken,
 } = new Artifacts(artifacts);
+
+const ContractOrderOwner = artifacts.require("ContractOrderOwner");
 
 contract("Exchange_Submit", (accounts: string[]) => {
 
@@ -17,6 +20,7 @@ contract("Exchange_Submit", (accounts: string[]) => {
   let dummyExchange: any;
   let orderBook: any;
   let orderRegistry: any;
+  let contractOrderOwner: any;
 
   const checkFilled = async (order: pjs.OrderInfo, expected: number) => {
     const filled = await exchangeTestUtil.context.tradeDelegate.filled("0x" + order.hash.toString("hex")).toNumber();
@@ -35,6 +39,8 @@ contract("Exchange_Submit", (accounts: string[]) => {
                                             exchangeTestUtil.ringSubmitter.address);
     await exchangeTestUtil.context.tradeDelegate.authorizeAddress(dummyExchange.address,
                                                                   {from: exchangeTestUtil.testContext.deployer});
+
+    contractOrderOwner = await ContractOrderOwner.new(exchangeTestUtil.context.orderBook.address, "0x0");
   });
 
   describe("submitRing", () => {
@@ -152,7 +158,7 @@ contract("Exchange_Submit", (accounts: string[]) => {
       await checkFilled(ringsInfo.orders[0], ringsInfo.orders[0].amountS);
     });
 
-    it("transaction origin is the miner", async () => {
+    it("should be able to submit rings without a mining signature when miner == msg.sender", async () => {
       const ringsInfo: pjs.RingsInfo = {
         rings: [[0, 1]],
         orders: [
@@ -169,22 +175,45 @@ contract("Exchange_Submit", (accounts: string[]) => {
             amountB: 100e18,
           },
         ],
-        transactionOrigin: exchangeTestUtil.testContext.miner,
-        feeRecipient: exchangeTestUtil.testContext.miner,
+        transactionOrigin: exchangeTestUtil.testContext.transactionOrigin,
+        feeRecipient: exchangeTestUtil.testContext.feeRecipient,
         miner: exchangeTestUtil.testContext.miner,
       };
+      // miner != msg.sender
       await exchangeTestUtil.setupRings(ringsInfo);
+      ringsInfo.sig = null;
+      ringsInfo.expected = {
+        revert: true,
+        revertMessage: "INVALID_SIG",
+      };
+      await exchangeTestUtil.submitRingsAndSimulate(ringsInfo);
+      // miner == msg.sender
+      ringsInfo.transactionOrigin = ringsInfo.miner;
+      ringsInfo.sig = undefined;
+      await exchangeTestUtil.setupRings(ringsInfo);
+      ringsInfo.sig = null;
+      ringsInfo.expected = {
+        rings: [
+          {
+            orders: [
+              {
+                filledFraction: 1.0,
+              },
+              {
+                filledFraction: 1.0,
+              },
+            ],
+          },
+        ],
+      };
       await exchangeTestUtil.submitRingsAndSimulate(ringsInfo);
     });
 
     it("on-chain order should be able to dealed with off-chain order", async () => {
-      const gtoAddr = exchangeTestUtil.testContext.tokenSymbolAddrMap.get("GTO");
-      const wethAddr = exchangeTestUtil.testContext.tokenSymbolAddrMap.get("WETH");
-
       const onChainOrder: pjs.OrderInfo = {
         index: 0,
-        tokenS: gtoAddr,
-        tokenB: wethAddr,
+        tokenS: "GTO",
+        tokenB: "WETH",
         amountS: 10000e18,
         amountB: 3e18,
         onChain: true,
@@ -192,8 +221,8 @@ contract("Exchange_Submit", (accounts: string[]) => {
 
       const offChainOrder: pjs.OrderInfo = {
         index: 1,
-        tokenS: wethAddr,
-        tokenB: gtoAddr,
+        tokenS: "WETH",
+        tokenB: "GTO",
         amountS: 3e18,
         amountB: 10000e18,
         feeAmount: 1e18,
@@ -210,16 +239,179 @@ contract("Exchange_Submit", (accounts: string[]) => {
       await exchangeTestUtil.setupRings(ringsInfo);
 
       const orderUtil = new pjs.OrderUtil(undefined);
-      const bytes32Array = orderUtil.toOrderBookSubmitParams(onChainOrder);
+      const orderData = orderUtil.toOrderBookSubmitParams(onChainOrder);
       const fromBlock = web3.eth.blockNumber;
-      await orderBook.submitOrder(bytes32Array, {from: onChainOrder.owner});
+      await orderBook.submitOrder(orderData, {from: onChainOrder.owner});
       const events: any = await exchangeTestUtil.getEventsFromContract(orderBook, "OrderSubmitted", fromBlock);
       const orderHashOnChain = events[0].args.orderHash;
-      const orderHashBuffer = orderUtil.getOrderHash(onChainOrder);
-      pjs.logDebug("orderHash:", "0x" + orderHashBuffer.toString("hex"));
+      const orderHash = "0x" + orderUtil.getOrderHash(onChainOrder).toString("hex");
+      pjs.logDebug("orderHash:", orderHash);
       pjs.logDebug("orderHashOnChain:", orderHashOnChain);
-      // assert.equal(onChainOrder.hash, orderHashOnChain, "order hash not equal");
+      assert.equal(orderHashOnChain, orderHash, "order hash not equal");
 
+      await exchangeTestUtil.submitRingsAndSimulate(ringsInfo);
+    });
+
+    it("should be able to use an order with a contract as order owner", async () => {
+      const onChainOrder: pjs.OrderInfo = {
+        index: 0,
+        owner: contractOrderOwner.address,
+        tokenS: "GTO",
+        tokenB: "WETH",
+        amountS: 10e18,
+        amountB: 10e18,
+        onChain: true,
+      };
+      const offChainOrder: pjs.OrderInfo = {
+        index: 1,
+        tokenS: "WETH",
+        tokenB: "GTO",
+        amountS: 10e18,
+        amountB: 10e18,
+        feeAmount: 1e18,
+        balanceS: 5e18,
+      };
+      const ringsInfo: pjs.RingsInfo = {
+        rings: [[0, 1]],
+        orders: [
+          onChainOrder,
+          offChainOrder,
+        ],
+      };
+      await exchangeTestUtil.setupRings(ringsInfo);
+
+      // Order not registered
+      ringsInfo.expected = {
+        rings: [
+          {
+            fail: true,
+          },
+        ],
+      };
+      await exchangeTestUtil.submitRingsAndSimulate(ringsInfo);
+
+      // Submit the order to the onchain OrderBook
+      const orderUtil = new pjs.OrderUtil(undefined);
+      const orderData = orderUtil.toOrderBookSubmitParams(onChainOrder);
+      const orderHash = "0x" + orderUtil.getOrderHash(onChainOrder).toString("hex");
+      const fromBlock = web3.eth.blockNumber;
+      await contractOrderOwner.sumbitOrderToOrderBook(orderData, orderHash);
+      const events: any = await exchangeTestUtil.getEventsFromContract(orderBook, "OrderSubmitted", fromBlock);
+      const orderHashOnChain = events[0].args.orderHash;
+      assert.equal(orderHashOnChain, orderHash, "order hash not equal");
+
+      // Order registered, but the contract is not allowed to spend any tokens in TradeDelegate
+      ringsInfo.expected = {
+        rings: [
+          {
+            orders: [
+              {
+                filledFraction: 0.0,
+              },
+              {
+                filledFraction: 0.0,
+              },
+            ],
+          },
+        ],
+      };
+      await exchangeTestUtil.submitRingsAndSimulate(ringsInfo);
+
+      // Allow the contract to spend tokenS
+      await contractOrderOwner.approve(onChainOrder.tokenS, exchangeTestUtil.context.tradeDelegate.address, 1e32);
+      // Still cannot pay any fees, so no tokens will be transferred
+      await exchangeTestUtil.submitRingsAndSimulate(ringsInfo);
+      // Allow the contract to spend feeToken
+      await contractOrderOwner.approve(onChainOrder.feeToken, exchangeTestUtil.context.tradeDelegate.address, 1e32);
+
+      // Order is registered and the contract can pay in tokenS and feeToken
+      ringsInfo.expected = {
+        rings: [
+          {
+            orders: [
+              {
+                filledFraction: 0.5,
+              },
+              {
+                filledFraction: 0.5,
+              },
+            ],
+          },
+        ],
+      };
+      await exchangeTestUtil.submitRingsAndSimulate(ringsInfo);
+    });
+
+    it("should be able to use an order with a contract as order broker", async () => {
+      const onChainOrder: pjs.OrderInfo = {
+        index: 0,
+        broker: contractOrderOwner.address,
+        tokenS: "GTO",
+        tokenB: "WETH",
+        amountS: 10e18,
+        amountB: 10e18,
+        onChain: true,
+      };
+      const offChainOrder: pjs.OrderInfo = {
+        index: 1,
+        tokenS: "WETH",
+        tokenB: "GTO",
+        amountS: 10e18,
+        amountB: 10e18,
+        feeAmount: 1e18,
+        balanceS: 5e18,
+      };
+      const ringsInfo: pjs.RingsInfo = {
+        rings: [[0, 1]],
+        orders: [
+          onChainOrder,
+          offChainOrder,
+        ],
+      };
+      await exchangeTestUtil.setupRings(ringsInfo);
+
+      // Order not registered
+      ringsInfo.expected = {
+        rings: [
+          {
+            fail: true,
+          },
+        ],
+      };
+      await exchangeTestUtil.submitRingsAndSimulate(ringsInfo);
+
+      // Submit the order to the onchain OrderBook
+      const orderUtil = new pjs.OrderUtil(undefined);
+      const orderData = orderUtil.toOrderBookSubmitParams(onChainOrder);
+      const orderHash = "0x" + orderUtil.getOrderHash(onChainOrder).toString("hex");
+      const fromBlock = web3.eth.blockNumber;
+      await contractOrderOwner.sumbitOrderToOrderBook(orderData, orderHash);
+      const events: any = await exchangeTestUtil.getEventsFromContract(orderBook, "OrderSubmitted", fromBlock);
+      const orderHashOnChain = events[0].args.orderHash;
+      assert.equal(orderHashOnChain, orderHash, "order hash not equal");
+
+      // Order is registered, but the broker is not
+      await exchangeTestUtil.submitRingsAndSimulate(ringsInfo);
+
+      // Register the broker without interceptor
+      const emptyAddr = "0x0000000000000000000000000000000000000000";
+      await exchangeTestUtil.registerOrderBrokerChecked(onChainOrder.owner, onChainOrder.broker, emptyAddr);
+
+      // Order and broker is registered
+      ringsInfo.expected = {
+        rings: [
+          {
+            orders: [
+              {
+                filledFraction: 0.5,
+              },
+              {
+                filledFraction: 0.5,
+              },
+            ],
+          },
+        ],
+      };
       await exchangeTestUtil.submitRingsAndSimulate(ringsInfo);
     });
 
@@ -377,6 +569,103 @@ contract("Exchange_Submit", (accounts: string[]) => {
       // Check fills
       await checkFilled(ringsInfo.orders[0], ringsInfo.orders[0].amountS);
       await checkFilled(ringsInfo.orders[1], ringsInfo.orders[1].amountS);
+    });
+
+    it("default values should be set to expected values", async () => {
+      const lrcAddress = exchangeTestUtil.context.lrcAddress;
+      const ringsInfo: pjs.RingsInfo = {
+        rings: [[0, 1]],
+        orders: [
+          {
+            tokenS: "WETH",
+            tokenB: "GTO",
+            amountS: 10e18,
+            amountB: 10e18,
+            walletSplitPercentage: 0,
+          },
+          {
+            tokenS: "GTO",
+            tokenB: "WETH",
+            amountS: 10e18,
+            amountB: 10e18,
+            walletSplitPercentage: 0,
+          },
+        ],
+        transactionOrigin: exchangeTestUtil.testContext.transactionOrigin,
+        feeRecipient: null,
+        miner: null,
+      };
+      await exchangeTestUtil.setupRings(ringsInfo);
+      const {tx, report} = await exchangeTestUtil.submitRingsAndSimulate(ringsInfo);
+
+      // tx.origin is the default feeRecipient
+      {
+        const feeRecipient = ringsInfo.transactionOrigin;
+        const feeBalanceBefore = report.feeBalancesBefore.getBalance(feeRecipient, lrcAddress);
+        const feeBalanceAfter = report.feeBalancesAfter.getBalance(feeRecipient, lrcAddress);
+        assert(feeBalanceAfter.gt(feeBalanceBefore), "tx.origin should be the default feeRecipient");
+      }
+
+      // LRC is the default feeToken
+      {
+        const callData = await exchangeTestUtil.deserializeRing(ringsInfo);
+        const lrcAddressIndex = callData.indexOf(lrcAddress);
+        assert.equal(lrcAddressIndex, -1, "LRC address should not be stored in the calldata");
+        let numLRCTransfers = 0;
+        for (const transfer of report.transferItems) {
+          if (transfer.to === exchangeTestUtil.context.feeHolder.address) {
+            assert.equal(transfer.token, lrcAddress, "LRC should be the default feeToken");
+            numLRCTransfers++;
+          }
+        }
+        assert.equal(numLRCTransfers, 2, "2 transfers to the fee contract expected");
+      }
+
+      // The order owner is the default tokenRecipient
+      {
+        for (const order of ringsInfo.orders) {
+          const balanceBefore = report.balancesBefore.getBalance(order.owner, order.tokenB);
+          const balanceAfter = report.balancesAfter.getBalance(order.owner, order.tokenB);
+          assert.equal(balanceAfter.minus(balanceBefore).toNumber(), order.amountB,
+                       "The order owner should receive the tokens bought");
+        }
+      }
+    });
+
+    it("should revert when a token transfer fails", async () => {
+      const ringsInfo: pjs.RingsInfo = {
+        rings: [[0, 1]],
+        orders: [
+          {
+            tokenS: "WETH",
+            tokenB: "TEST",
+            amountS: 10e18,
+            amountB: 10e18,
+          },
+          {
+            tokenS: "TEST",
+            tokenB: "WETH",
+            amountS: 10e18,
+            amountB: 10e18,
+          },
+        ],
+      };
+      await exchangeTestUtil.setupRings(ringsInfo);
+
+      // Setup the ring
+      const ringsGenerator = new pjs.RingsGenerator(exchangeTestUtil.context);
+      await ringsGenerator.setupRingsAsync(ringsInfo);
+      const bs = ringsGenerator.toSubmitableParam(ringsInfo);
+
+      // Fail the token transfer by throwing in transferFrom
+      const TestToken = TESTToken.at(exchangeTestUtil.testContext.tokenSymbolAddrMap.get("TEST"));
+      await TestToken.setTestCase(await TestToken.TEST_REQUIRE_FAIL());
+
+      // submitRings should revert
+      await pjs.expectThrow(
+        exchangeTestUtil.ringSubmitter.submitRings(bs, {from: exchangeTestUtil.testContext.transactionOrigin}),
+        "TRANSFER_FAILURE",
+      );
     });
 
   });

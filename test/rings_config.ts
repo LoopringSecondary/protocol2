@@ -270,7 +270,7 @@ export const ringsInfoList: RingsInfo[] = [
   },
 
   {
-    description: "single 2-size ring, token sold also used for paying fees (sufficient funds)",
+    description: "single 2-size ring, feeToken == tokenS (sufficient funds)",
     rings: [[0, 1]],
     orders: [
       {
@@ -309,7 +309,7 @@ export const ringsInfoList: RingsInfo[] = [
   },
 
   {
-    description: "single 2-size ring, token sold also used for paying fees (insufficient funds)",
+    description: "single 2-size ring, feeToken == tokenS (insufficient funds)",
     rings: [[0, 1]],
     orders: [
       {
@@ -348,7 +348,7 @@ export const ringsInfoList: RingsInfo[] = [
   },
 
   {
-    description: "single 2-size ring, token bought also used for paying fees",
+    description: "single 2-size ring, feeToken == tokenB (feeAmount <= amountB)",
     rings: [[0, 1]],
     orders: [
       {
@@ -359,6 +359,7 @@ export const ringsInfoList: RingsInfo[] = [
         amountB: 10e18,
         feeToken: "LRC",
         feeAmount: 1e18,
+        balanceFee: 0,
       },
       {
         index: 1,
@@ -379,6 +380,87 @@ export const ringsInfoList: RingsInfo[] = [
             },
             {
               filledFraction: 1.0,
+            },
+          ],
+        },
+      ],
+    },
+  },
+
+  {
+    description: "single 2-size ring, feeToken == tokenB (feeAmount > amountB)",
+    rings: [[0, 1]],
+    orders: [
+      {
+        index: 0,
+        tokenS: "WETH",
+        tokenB: "LRC",
+        amountS: 100e18,
+        amountB: 10e18,
+        feeToken: "LRC",
+        feeAmount: 20e18,
+        balanceFee: 0,
+      },
+      {
+        index: 1,
+        tokenS: "LRC",
+        tokenB: "WETH",
+        amountS: 10e18,
+        amountB: 100e18,
+        feeToken: "GTO",
+        feeAmount: 1e18,
+      },
+    ],
+    expected: {
+      rings: [
+        {
+          orders: [
+            {
+              filledFraction: 0.0,
+            },
+            {
+              filledFraction: 0.0,
+            },
+          ],
+        },
+      ],
+    },
+  },
+
+  {
+    description: "single 2-size ring, feeToken == tokenB and tokenRecipient != owner (feeAmount <= amountB)",
+    rings: [[0, 1]],
+    orders: [
+      {
+        index: 0,
+        tokenS: "WETH",
+        tokenB: "LRC",
+        amountS: 100e18,
+        amountB: 10e18,
+        feeToken: "LRC",
+        feeAmount: 1e18,
+        balanceFee: 0,
+        tokenRecipient: "2",
+      },
+      {
+        index: 1,
+        tokenS: "LRC",
+        tokenB: "WETH",
+        amountS: 10e18,
+        amountB: 100e18,
+        feeToken: "GTO",
+        feeAmount: 1e18,
+      },
+    ],
+    expected: {
+      rings: [
+        {
+          orders: [
+            {
+              filledFraction: 0.0,
+            },
+            {
+              filledFraction: 0.0,
             },
           ],
         },
@@ -699,17 +781,7 @@ export const ringsInfoList: RingsInfo[] = [
     expected: {
       rings: [
         {
-          orders: [
-            {
-              filledFraction: 0.0,
-            },
-            {
-              filledFraction: 0.0,
-            },
-            {
-              filledFraction: 0.0,
-            },
-          ],
+          fail: true,
         },
       ],
     },
@@ -1215,6 +1287,53 @@ export const ringsInfoList: RingsInfo[] = [
   },
 
   {
+    description: "multiple 2-size rings, the same ring is settled twice",
+    rings: [[0, 1], [0, 1]],
+    orders: [
+      {
+        index: 0,
+        tokenS: tokenSymbols[2],
+        tokenB: tokenSymbols[1],
+        amountS: 100e18,
+        amountB: 10e18,
+      },
+      {
+        index: 1,
+        tokenS: tokenSymbols[1],
+        tokenB: tokenSymbols[2],
+        amountS: 5e18,
+        amountB: 50e18,
+      },
+    ],
+    expected: {
+      rings: [
+        {
+          orders: [
+            {
+              filledFraction: 0.5,
+              margin: 0,
+            },
+            {
+              filledFraction: 1.0,
+              margin: 0,
+            },
+          ],
+        },
+        {
+          orders: [
+            {
+              filledFraction: 0.0,
+            },
+            {
+              filledFraction: 0.0,
+            },
+          ],
+        },
+      ],
+    },
+  },
+
+  {
     description: "P2P: Daniel's example",
     transactionOrigin: "1",
     rings: [[0, 1]],
@@ -1438,6 +1557,63 @@ export const ringsInfoList: RingsInfo[] = [
             {
               filledFraction: 1.0,
               P2P: true,
+            },
+          ],
+        },
+      ],
+    },
+  },
+
+  {
+    description: "P2P: multiple 2-size rings, order is allOrNone, filled in multiple rings (successful)",
+    rings: [[0, 1], [0, 2]],
+    orders: [
+      {
+        index: 0,
+        tokenS: tokenSymbols[0],
+        tokenB: tokenSymbols[1],
+        amountS: 100e18,
+        amountB: 9e18,
+        tokenSFeePercentage: 100,   // == 10.0%
+        tokenBFeePercentage: 50,    // == 5.0%
+        allOrNone: true,
+      },
+      {
+        index: 1,
+        tokenS: tokenSymbols[1],
+        tokenB: tokenSymbols[0],
+        amountS: 6e18,
+        amountB: 60e18,
+      },
+      {
+        index: 2,
+        tokenS: tokenSymbols[1],
+        tokenB: tokenSymbols[0],
+        amountS: 5e18,
+        amountB: 50e18,
+      },
+    ],
+    expected: {
+      rings: [
+        {
+          orders: [
+            {
+              filledFraction: 2 / 3,
+              P2P: true,
+            },
+            {
+              filledFraction: 1.0,
+            },
+          ],
+        },
+        {
+          orders: [
+            {
+              filledFraction: 1 / 3,
+              P2P: true,
+            },
+            {
+              filledFraction: 3 / 5,
             },
           ],
         },
@@ -1856,6 +2032,7 @@ export const ringsInfoList: RingsInfo[] = [
     ],
     expected: {
       revert: true,
+      revertMessage: "INVALID_SIG",
     },
   },
 
@@ -1963,7 +2140,7 @@ export const ringsInfoList: RingsInfo[] = [
   },
 
   {
-    description: "one to many match: one big order filled by may small orders",
+    description: "one to many match: one big order filled by many small orders",
     rings: [[0, 1], [0, 2], [0, 3], [0, 4], [0, 5], [0, 6], [0, 7], [0, 8], [0, 9], [0, 10], [0, 11, 12]],
     orders: [
       {
@@ -2157,7 +2334,14 @@ export const ringsInfoList: RingsInfo[] = [
           ],
         },
         {
-          fail: true,
+          orders: [
+            {
+              filledFraction: 0.0,
+            },
+            {
+              filledFraction: 0.0,
+            },
+          ],
         },
         {
           orders: [

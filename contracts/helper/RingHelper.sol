@@ -47,8 +47,8 @@ library RingHelper {
         assembly {
             let data := mload(0x40)
             let ptr := data
+            let participations := mload(add(ring, 32))                                  // ring.participations
             for { let i := 0 } lt(i, ringSize) { i := add(i, 1) } {
-                let participations := mload(add(ring, 32))                              // ring.participations
                 let participation := mload(add(participations, add(32, mul(i, 32))))    // participations[i]
                 let order := mload(participation)                                       // participation.order
 
@@ -168,8 +168,8 @@ library RingHelper {
         uint postFeeFillAmountS = p.fillAmountS;
         uint tokenSFeePercentage = p.order.tokenSFeePercentage;
         if (tokenSFeePercentage > 0) {
-            postFeeFillAmountS = p.fillAmountS
-                .mul(ctx.feePercentageBase - tokenSFeePercentage) / ctx.feePercentageBase;
+            uint feeAmountS = p.fillAmountS.mul(tokenSFeePercentage) / ctx.feePercentageBase;
+            postFeeFillAmountS = p.fillAmountS - feeAmountS;
         }
 
         if (prevP.fillAmountB > postFeeFillAmountS) {
@@ -243,37 +243,40 @@ library RingHelper {
     }
 
     function generateFills(
-        Data.Ring ring
+        Data.Ring ring,
+        uint destPtr
         )
         internal
         pure
-        returns (IRingSubmitter.Fill[] memory fills)
+        returns (uint fill)
     {
         uint ringSize = ring.size;
-        uint arrayDataSize = (ringSize + 1) * 32;
+        uint fillSize = 6 * 32;
         assembly {
-            fills := mload(0x40)
-            mstore(add(fills, 0), ringSize)
-            let fill := add(fills, arrayDataSize)
+            fill := destPtr
             let participations := mload(add(ring, 32))                                 // ring.participations
 
             for { let i := 0 } lt(i, ringSize) { i := add(i, 1) } {
-                // Store the memory location of this fill in the fills array
-                mstore(add(fills, mul(add(i, 1), 32)), fill)
-
                 let participation := mload(add(participations, add(32, mul(i, 32))))   // participations[i]
                 let order := mload(participation)                                      // participation.order
+
+                // When !order.P2P and tokenB == feeToken
+                // the matching fee can be paid in feeAmountB (and feeAmount == 0)
+                let feeAmount := mload(add(participation,  64))                        // participation.feeAmount
+                if eq(mload(add(order, 832)), 0) {                                     // order.P2P
+                    let feeAmountB := mload(add(participation, 128))                   // participation.feeAmountB
+                    feeAmount := add(feeAmount, feeAmountB)
+                }
 
                 mstore(add(fill,   0), mload(add(order, 864)))                         // order.hash
                 mstore(add(fill,  32), mload(add(order,  32)))                         // order.owner
                 mstore(add(fill,  64), mload(add(order,  64)))                         // order.tokenS
                 mstore(add(fill,  96), mload(add(participation, 256)))                 // participation.fillAmountS
                 mstore(add(fill, 128), mload(add(participation,  32)))                 // participation.splitS
-                mstore(add(fill, 160), mload(add(participation,  64)))                 // participation.feeAmount
+                mstore(add(fill, 160), feeAmount)                                      // feeAmount
 
-                fill := add(fill, 192)                                                 // 6 * 32
+                fill := add(fill, fillSize)
             }
-            mstore(0x40, fill)
         }
     }
 
@@ -434,8 +437,8 @@ library RingHelper {
                         let dataAmount := mload(add(p, 96))
                         // dataAmount = amount.add(dataAmount);
                         dataAmount := add(amount, dataAmount)
-                        // require(dataAmount > amount) (safe math)
-                        if sub(1, gt(dataAmount, amount)) {
+                        // require(dataAmount >= amount) (safe math)
+                        if lt(dataAmount, amount) {
                             revert(0, 0)
                         }
                         mstore(add(p, 96), dataAmount)
@@ -504,8 +507,8 @@ library RingHelper {
     }
 
     function payFeesForParticipation(
-        Data.FeeContext memory feeCtx,
-        Data.Participation memory p
+        Data.FeeContext feeCtx,
+        Data.Participation p
         )
         internal
         view
@@ -535,7 +538,7 @@ library RingHelper {
     }
 
     function payFeesAndBurn(
-        Data.FeeContext memory feeCtx,
+        Data.FeeContext feeCtx,
         address token,
         uint totalAmount
         )
@@ -573,6 +576,7 @@ library RingHelper {
             }
 
             uint32 burnRate = getBurnRate(feeCtx, token);
+            assert(burnRate <= feeCtx.ctx.feePercentageBase);
 
             // Miner fee
             minerFeeBurn = minerFee.mul(burnRate) / feeCtx.ctx.feePercentageBase;
@@ -632,7 +636,7 @@ library RingHelper {
     }
 
     function getBurnRate(
-        Data.FeeContext memory feeCtx,
+        Data.FeeContext feeCtx,
         address token
         )
         internal
@@ -659,7 +663,7 @@ library RingHelper {
     }
 
     function distributeMinerFeeToOwners(
-        Data.FeeContext memory feeCtx,
+        Data.FeeContext feeCtx,
         address token,
         uint minerFee
         )
@@ -706,8 +710,8 @@ library RingHelper {
                         let dataAmount := mload(add(p, 64))
                         // dataAmount = amount.add(dataAmount);
                         dataAmount := add(amount, dataAmount)
-                        // require(dataAmount > amount) (safe math)
-                        if sub(1, gt(dataAmount, amount)) {
+                        // require(dataAmount >= amount) (safe math)
+                        if lt(dataAmount, amount) {
                             revert(0, 0)
                         }
                         mstore(add(p, 64), dataAmount)

@@ -197,12 +197,10 @@ contract RingSubmitter is IRingSubmitter, NoDefaultFunc {
             if (ring.valid) {
                 // Only settle rings we have checked to be valid
                 ring.doPayments(ctx, mining);
-                IRingSubmitter.Fill[] memory fills = ring.generateFills();
-                emit RingMined(
+                emitRingMinedEvent(
+                    ring,
                     ctx.ringIndex++,
-                    ring.hash,
-                    mining.feeRecipient,
-                    fills
+                    mining.feeRecipient
                 );
             } else {
                 emit InvalidRing(ring.hash);
@@ -254,6 +252,41 @@ contract RingSubmitter is IRingSubmitter, NoDefaultFunc {
                     }
                 }
             }
+        }
+    }
+
+    function emitRingMinedEvent(
+        Data.Ring ring,
+        uint _ringIndex,
+        address feeRecipient
+        )
+        internal
+    {
+        bytes32 ringHash = ring.hash;
+        // keccak256("RingMined(uint256,bytes32,address,bytes)")
+        bytes32 ringMinedSignature = 0xb2ef4bc5209dff0c46d5dfddb2b68a23bd4820e8f33107fde76ed15ba90695c9;
+        uint fillsSize = ring.size * 6 * 32;
+
+        uint data;
+        uint ptr;
+        assembly {
+            data := mload(0x40)
+            ptr := data
+            mstore(ptr, _ringIndex)                     // ring index data
+            mstore(add(ptr, 32), 0x40)                  // offset to fills data
+            mstore(add(ptr, 64), fillsSize)             // fills length
+            ptr := add(ptr, 96)
+        }
+        ptr = ring.generateFills(ptr);
+
+        assembly {
+            log3(
+                data,                                   // data start
+                sub(ptr, data),                         // data length
+                ringMinedSignature,                     // Topic 0: RingMined signature
+                ringHash,                               // Topic 1: ring hash
+                feeRecipient                            // Topic 2: feeRecipient
+            )
         }
     }
 
@@ -331,6 +364,7 @@ contract RingSubmitter is IRingSubmitter, NoDefaultFunc {
                 mstore(add(ptr,  0), broker)
                 mstore(add(ptr, 32), owner)
                 mstore(add(ptr, 64), token)
+
                 // Initialize spendable
                 mstore(add(ptr, 96), 0)
                 mstore(add(ptr, 128), 0)
@@ -369,7 +403,7 @@ contract RingSubmitter is IRingSubmitter, NoDefaultFunc {
         bytes32[] memory tokenBurnRates;
         assembly {
             tokenBurnRates := mload(0x40)
-            mstore(tokenBurnRates, 0)                               // Length
+            mstore(tokenBurnRates, 0)                               // tokenBurnRates.length
             mstore(0x40, add(
                 tokenBurnRates,
                 add(32, mul(maxNumTokenBurnRates, 64))
@@ -469,7 +503,7 @@ contract RingSubmitter is IRingSubmitter, NoDefaultFunc {
                 let order := mload(add(orders, mul(add(i, 1), 32)))
                 let filledAmount := mload(add(order, 928))                               // order.filledAmountS
                 let initialFilledAmount := mload(add(order, 960))                        // order.initialFilledAmountS
-                let filledAmountChanged := sub(1, eq(filledAmount, initialFilledAmount))
+                let filledAmountChanged := iszero(eq(filledAmount, initialFilledAmount))
                 // if (order.valid && filledAmountChanged)
                 if and(gt(mload(add(order, 992)), 0), filledAmountChanged) {             // order.valid
                     mstore(add(ptr,   0), mload(add(order, 864)))                        // order.hash
@@ -482,7 +516,7 @@ contract RingSubmitter is IRingSubmitter, NoDefaultFunc {
 
             // Only do the external call if the list is not empty
             if gt(arrayLength, 0) {
-                mstore(add(data, 36), arrayLength)      // length
+                mstore(add(data, 36), arrayLength)      // filledInfo.length
 
                 let success := call(
                     gas,                                // forward all gas
@@ -491,10 +525,12 @@ contract RingSubmitter is IRingSubmitter, NoDefaultFunc {
                     data,                               // input start
                     sub(ptr, data),                     // input length
                     data,                               // output start
-                    32                                  // output length
+                    0                                   // output length
                 )
                 if eq(success, 0) {
-                    revert(0, 0)
+                    // Propagate the revert message
+                    returndatacopy(0, 0, returndatasize())
+                    revert(0, returndatasize())
                 }
             }
         }
@@ -506,7 +542,7 @@ contract RingSubmitter is IRingSubmitter, NoDefaultFunc {
         )
         internal
     {
-        // Store the data directly in the call data format as expected by batchGetFilledAndCheckCancelled:
+        // Store the data in the call data format as expected by batchGetFilledAndCheckCancelled:
         // - 0x00: batchGetFilledAndCheckCancelled selector (4 bytes)
         // - 0x04: parameter offset (batchGetFilledAndCheckCancelled has a single function parameter) (32 bytes)
         // - 0x24: length of the array passed into the function (32 bytes)
@@ -556,7 +592,12 @@ contract RingSubmitter is IRingSubmitter, NoDefaultFunc {
                 returnDataSize                      // output length
             )
             // Check if the call was successful and the return data is the expected size
-            if or(eq(success, 0), sub(1, eq(returndatasize(), returnDataSize))) {
+            if or(eq(success, 0), iszero(eq(returndatasize(), returnDataSize))) {
+                if eq(success, 0) {
+                    // Propagate the revert message
+                    returndatacopy(0, 0, returndatasize())
+                    revert(0, returndatasize())
+                }
                 revert(0, 0)
             }
             for { let i := 0 } lt(i, mload(orders)) { i := add(i, 1) } {
@@ -569,7 +610,7 @@ contract RingSubmitter is IRingSubmitter, NoDefaultFunc {
                 mstore(add(order, 992),                                 // order.valid
                     and(
                         gt(mload(add(order, 992)), 0),                  // order.valid
-                        sub(1, eq(fill, not(0)))                        // fill != ~uint(0
+                        iszero(eq(fill, not(0)))                        // fill != ~uint(0
                     )
                 )
             }
@@ -585,9 +626,9 @@ contract RingSubmitter is IRingSubmitter, NoDefaultFunc {
         if (ctx.transferData == ctx.transferPtr) {
             return;
         }
-        // We stored the transfers in the call data as expected by batchAddFeeBalances.
+        // We stored the token transfers in the call data as expected by batchTransfer.
         // The only thing we still need to do is update the final length of the array and call
-        // the function on the FeeHolder contract with the generated data.
+        // the function on the TradeDelegate contract with the generated data.
         address _tradeDelegateAddress = address(ctx.delegate);
         bytes4 batchTransferSelector = ctx.delegate.batchTransfer.selector;
         uint arrayLength = (ctx.transferPtr - ctx.transferData);
@@ -595,7 +636,6 @@ contract RingSubmitter is IRingSubmitter, NoDefaultFunc {
         uint ptr = ctx.transferPtr;
         uint numTransfers = arrayLength / 7;
         assembly {
-
             let newData := mload(0x40)
             mstore(newData, batchTransferSelector)
             mstore(add(newData,  4), 32)
@@ -632,10 +672,12 @@ contract RingSubmitter is IRingSubmitter, NoDefaultFunc {
                 newData,                            // input start
                 sub(newDataPtr, newData),           // input length
                 newData,                            // output start
-                32                                  // output length
+                0                                   // output length
             )
             if eq(success, 0) {
-                revert(0, 0)
+                // Propagate the revert message
+                returndatacopy(0, 0, returndatasize())
+                revert(0, returndatasize())
             }
         }
     }
@@ -649,15 +691,15 @@ contract RingSubmitter is IRingSubmitter, NoDefaultFunc {
         if (ctx.feeData == ctx.feePtr) {
             return;
         }
-        // We stored the fee payments in the call data as expected by batchTransfer.
+        // We stored the fee payments in the call data as expected by batchAddFeeBalances.
         // The only thing we still need to do is update the final length of the array and call
-        // the function on the TradeDelegate contract with the generated data.
+        // the function on the FeeHolder contract with the generated data.
         address _feeHolderAddress = address(ctx.feeHolder);
         uint arrayLength = (ctx.feePtr - ctx.feeData) / 32;
         uint data = ctx.feeData - 68;
         uint ptr = ctx.feePtr;
         assembly {
-            mstore(add(data, 36), arrayLength)      // length
+            mstore(add(data, 36), arrayLength)      // batch.length
 
             let success := call(
                 gas,                                // forward all gas
@@ -666,10 +708,12 @@ contract RingSubmitter is IRingSubmitter, NoDefaultFunc {
                 data,                               // input start
                 sub(ptr, data),                     // input length
                 data,                               // output start
-                32                                  // output length
+                0                                   // output length
             )
             if eq(success, 0) {
-                revert(0, 0)
+                // Propagate the revert message
+                returndatacopy(0, 0, returndatasize())
+                revert(0, returndatasize())
             }
         }
     }

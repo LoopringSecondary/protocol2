@@ -18,13 +18,14 @@ pragma solidity 0.4.24;
 pragma experimental "v0.5.0";
 pragma experimental "ABIEncoderV2";
 
-import "../lib/MemoryUtil.sol";
+import "../lib/BytesUtil.sol";
 import "./Data.sol";
 
 
 /// @title Deserializes the data passed to submitRings
 /// @author Daniel Wang - <daniel@loopring.org>,
 library ExchangeDeserializer {
+    using BytesUtil     for bytes;
 
     function deserialize(
         address lrcTokenAddress,
@@ -33,20 +34,22 @@ library ExchangeDeserializer {
         internal
         view
         returns (
-            Data.Mining memory mining,
-            Data.Order[] memory orders,
-            Data.Ring[] memory rings
+            Data.Mining mining,
+            Data.Order[] orders,
+            Data.Ring[] rings
         )
     {
         // Read the header
         Data.Header memory header;
-        header.version = uint16(MemoryUtil.bytesToUintX(data, 0, 2) & 0xFFFF);
-        header.numOrders = uint16(MemoryUtil.bytesToUintX(data, 2, 2) & 0xFFFF);
-        header.numRings = uint16(MemoryUtil.bytesToUintX(data, 4, 2) & 0xFFFF);
-        header.numSpendables = uint16(MemoryUtil.bytesToUintX(data, 6, 2) & 0xFFFF);
+        header.version = data.bytesToUint16(0);
+        header.numOrders = data.bytesToUint16(2);
+        header.numRings = data.bytesToUint16(4);
+        header.numSpendables = data.bytesToUint16(6);
 
         // Validation
         require(header.version == 0, "Unsupported serialization format");
+        require(header.numOrders > 0, "Invalid number of orders");
+        require(header.numRings > 0, "Invalid number of rings");
         require(header.numSpendables > 0, "Invalid number of spendables");
 
         // Calculate data pointers
@@ -128,7 +131,7 @@ library ExchangeDeserializer {
         returns (Data.Order[] orders)
     {
         bytes memory emptyBytes = new bytes(0);
-        uint orderStructSize = 39 * 32;
+        uint orderStructSize = 38 * 32;
         // Memory for orders length + numOrders order pointers
         uint arrayDataSize = (1 + numOrders) * 32;
         Data.Spendable[] memory spendableList = new Data.Spendable[](numSpendables);
@@ -429,6 +432,11 @@ library ExchangeDeserializer {
                 let ringSize := and(mload(data), 0xFF)
                 data := add(data, 1)
 
+                // require(ringsSize <= 8)
+                if gt(ringSize, 8) {
+                    revert(0, 0)
+                }
+
                 // Allocate memory for all participations
                 let participations := mload(0x40)
                 mstore(add(participations, 0), ringSize)         // participations.length
@@ -452,6 +460,10 @@ library ExchangeDeserializer {
 
                     // Get the order index
                     let orderIndex := and(mload(data), 0xFF)
+                    // require(orderIndex < orders.length)
+                    if iszero(lt(orderIndex, mload(orders))) {
+                        revert(0, 0)
+                    }
                     data := add(data, 1)
 
                     // participation.order
