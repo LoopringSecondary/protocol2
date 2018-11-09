@@ -276,23 +276,49 @@ export class ExchangeTestUtil {
     await this.setOrderBalances(order);
   }
 
+  public async setBalance(tokenType: pjs.TokenType, token: any, owner: string, tranche: string, amount: number) {
+    switch (tokenType) {
+      case pjs.TokenType.ERC20:
+        await token.setBalance(owner, amount);
+        break;
+      case pjs.TokenType.ERC1400:
+        await token.setBalance(owner, tranche, amount);
+        break;
+      default:
+        assert(false);
+    }
+  }
+
+  public async addBalance(tokenType: pjs.TokenType, token: any, owner: string, tranche: string, amount: number) {
+    switch (tokenType) {
+      case pjs.TokenType.ERC20:
+        await token.addBalance(owner, amount);
+        break;
+      case pjs.TokenType.ERC1400:
+        await token.addBalance(owner, tranche, amount);
+        break;
+      default:
+        assert(false);
+    }
+  }
+
   public async setOrderBalances(order: pjs.OrderInfo) {
     const tokenS = this.testContext.tokenAddrInstanceMap.get(order.tokenS);
     const balanceS = (order.balanceS !== undefined) ? order.balanceS : order.amountS;
-    await tokenS.setBalance(order.owner, order.trancheS, balanceS);
+    await this.setBalance(order.tokenTypeS, tokenS, order.owner, order.trancheS, balanceS);
 
     const feeToken = order.feeToken ? order.feeToken : this.context.lrcAddress;
     const balanceFee = (order.balanceFee !== undefined) ? order.balanceFee : order.feeAmount;
     if (feeToken === order.tokenS) {
-      tokenS.addBalance(order.owner, order.trancheS, balanceFee);
+      await this.addBalance(order.tokenTypeFee, tokenS, order.owner, order.trancheS, balanceFee);
     } else {
       const tokenFee = this.testContext.tokenAddrInstanceMap.get(feeToken);
-      await tokenFee.setBalance(order.owner, "0x0", balanceFee);
+      await this.setBalance(order.tokenTypeFee, tokenFee, order.owner, "0x0", balanceFee);
     }
 
     if (order.balanceB) {
       const tokenB = this.testContext.tokenAddrInstanceMap.get(order.tokenB);
-      await tokenB.setBalance(order.owner, order.trancheB, order.balanceB);
+      await this.setBalance(order.tokenTypeB, tokenB, order.owner, order.trancheB, order.balanceB);
     }
   }
 

@@ -634,13 +634,12 @@ contract RingSubmitter is IRingSubmitter, NoDefaultFunc {
         uint arrayLength = (ctx.transferPtr - ctx.transferData);
         uint data = ctx.transferData - 68;
         uint ptr = ctx.transferPtr;
-        uint numTransfers = arrayLength / 7;
         assembly {
             let newData := mload(0x40)
             mstore(newData, batchTransferSelector)
             mstore(add(newData,  4), 32)
             let newDataStart := add(newData, 68)
-            let newDataPtr := add(newData, 100)
+            let newDataPtr := newDataStart
             for { let p := add(data, 68) } lt(p, ptr) { p := add(p, 224) } {
                 mstore(add(newDataPtr,   0), mload(add(p,   0)))
                 mstore(add(newDataPtr,  32), mload(add(p,  32)))
@@ -661,8 +660,7 @@ contract RingSubmitter is IRingSubmitter, NoDefaultFunc {
 
                 newDataPtr := add(newDataPtr, add(192, numBytes))
             }
-            mstore(add(newData, 36), sub(newDataPtr, newDataStart))         // length
-            mstore(add(newData, 68), numTransfers)
+            mstore(add(newData, 36), sub(newDataPtr, newDataStart))         // batch.length
             mstore(0x40, newDataPtr)
 
             let success := call(

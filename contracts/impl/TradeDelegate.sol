@@ -108,18 +108,14 @@ contract TradeDelegate is ITradeDelegate, Claimable, NoDefaultFunc {
         onlyAuthorized
         notSuspended
     {
-        // uint length = batch.length;
-        // require(length % 7 == 0, INVALID_SIZE);
-
-        uint numTransfers;
         uint batchPtr;
         assembly {
-            numTransfers := calldataload(68)
             batchPtr := batch
         }
-        uint start = batchPtr + 64;
-        uint end = start + batch.length - 32;
-        for (uint p = start; p < end;) {
+        uint start = batchPtr + 32;
+        uint end = start + batch.length;
+        uint p = start;
+        while(p < end) {
             address token;
             address from;
             address to;
@@ -158,6 +154,7 @@ contract TradeDelegate is ITradeDelegate, Claimable, NoDefaultFunc {
                 require(ESC == 0x01, TRANSFER_FAILURE);
             }
         }
+        require(p == end, INVALID_SIZE);
     }
 
     function batchUpdateFilled(

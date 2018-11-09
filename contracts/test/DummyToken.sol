@@ -40,7 +40,6 @@ contract DummyToken is LRCToken {
 
     function setBalance(
         address _target,
-        bytes32 _tranche,
         uint _value
         )
         public
@@ -56,7 +55,6 @@ contract DummyToken is LRCToken {
 
     function addBalance(
         address _target,
-        bytes32 _tranche,
         uint _value
         )
         public

@@ -106,8 +106,11 @@ contract("TradeDelegate", (accounts: string[]) => {
       bitstream.addAddress(transfer.from, 32);
       bitstream.addAddress(transfer.to, 32);
       bitstream.addNumber(transfer.amount, 32);
+      bitstream.addNumber(0, 32);
+      bitstream.addNumber(0, 32);
+      bitstream.addNumber(0, 32);
     }
-    return bitstream.getBytes32Array();
+    return bitstream.getData();
   };
 
   const toFilledBatch = (updates: FilledUpdate[]) => {
@@ -341,8 +344,7 @@ contract("TradeDelegate", (accounts: string[]) => {
       const transfers: TokenTransfer[] = [];
       addTokenTransfer(transfers, token1, user1, user2, 1e18);
       addTokenTransfer(transfers, token1, user1, user3, 2e18);
-      const batch = toTransferBatch(transfers);
-      batch.pop();
+      const batch = toTransferBatch(transfers).slice(0, -1);
       await expectThrow(dummyExchange1.batchTransfer(batch), "INVALID_SIZE");
     });
 
