@@ -1,6 +1,6 @@
 import { BN } from "bn.js";
 import abi = require("ethereumjs-abi");
-import { expectThrow, logDebug, OrderInfo, OrderUtil } from "protocol2-js";
+import { expectThrow, logDebug, OrderInfo, OrderUtil, TokenType } from "protocol2-js";
 import util = require("util");
 import { Artifacts } from "../util/Artifacts";
 
@@ -74,6 +74,11 @@ contract("OrderBook", (accounts: string[]) => {
       tokenSFeePercentage: 30,
       tokenBFeePercentage: 40,
       onChain: true,
+      tokenTypeS: TokenType.ERC1400,
+      tokenTypeB: TokenType.ERC20,
+      trancheS: "0x" + "01".repeat(32),
+      trancheB: "0x" + "ab".repeat(32),
+      transferDataS: "0x0123456789abcdef0000ffff0123456789abcdef",
     };
     return order;
   };

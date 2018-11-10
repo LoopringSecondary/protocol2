@@ -69,9 +69,12 @@ library OrderHelper {
 
             // We store the members back to front so we can overwrite data for members smaller than 32
             // (mstore always writes 32 bytes)
-            mstore(add(ptr, sub(411,  0)), transferDataSHash)
-            mstore(add(ptr, sub(379,  0)), mload(add(order, 1152)))   // order.trancheB
-            mstore(add(ptr, sub(347,  0)), mload(add(order, 1120)))   // order.trancheS
+            mstore(add(ptr, sub(414,  0)), transferDataSHash)
+            mstore(add(ptr, sub(382,  0)), mload(add(order, 1152)))   // order.trancheB
+            mstore(add(ptr, sub(350,  0)), mload(add(order, 1120)))   // order.trancheS
+            mstore(add(ptr, sub(349, 31)), mload(add(order, 1088)))   // order.tokenTypeFee
+            mstore(add(ptr, sub(348, 31)), mload(add(order, 1056)))   // order.tokenTypeB
+            mstore(add(ptr, sub(347, 31)), mload(add(order, 1024)))   // order.tokenTypeS
             mstore(add(ptr, sub(346, 31)), mload(add(order,  576)))   // order.allOrNone
             mstore(add(ptr, sub(344, 30)), mload(add(order,  736)))   // order.tokenBFeePercentage
             mstore(add(ptr, sub(342, 30)), mload(add(order,  704)))   // order.tokenSFeePercentage
@@ -91,7 +94,7 @@ library OrderHelper {
             mstore(add(ptr, sub( 32,  0)), mload(add(order,  160)))   // order.amountB
             mstore(add(ptr, sub(  0,  0)), mload(add(order,  128)))   // order.amountS
 
-            hash := keccak256(ptr, 443)  // 8*32 + 9*20 + 3*2 + 1*1
+            hash := keccak256(ptr, 446)  // 8*32 + 9*20 + 3*2 + 4*1
         }
         order.hash = hash;
     }

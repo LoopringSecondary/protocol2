@@ -190,6 +190,8 @@ library RingHelper {
             uint prev = (i + ring.size - 1) % ring.size;
             ring.valid = ring.valid && ring.participations[i].order.valid;
             ring.valid = ring.valid && ring.participations[i].order.tokenS == ring.participations[prev].order.tokenB;
+            ring.valid = ring.valid &&
+                ring.participations[i].order.tokenTypeS == ring.participations[prev].order.tokenTypeB;
         }
     }
 

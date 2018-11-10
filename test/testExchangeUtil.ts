@@ -59,7 +59,7 @@ export class ExchangeTestUtil {
           fromTranche: zeroAddress,
           toTranche: zeroAddress,
         };
-        console.log(transferItem);
+        // console.log(transferItem);
         transferItems.push(transferItem);
       });
 
@@ -77,7 +77,7 @@ export class ExchangeTestUtil {
           toTranche: eventObj.args.toTranche,
           data: eventObj.args.data,
         };
-        console.log(transferItem);
+        // console.log(transferItem);
         transferItems.push(transferItem);
       });
     }
