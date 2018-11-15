@@ -57,6 +57,7 @@ export class ExchangeTestUtil {
           from: eventObj.args.from,
           to: eventObj.args.to,
           amount: eventObj.args.value,
+          tokenType: pjs.TokenType.ERC20,
           fromTranche: zeroAddress,
           toTranche: zeroAddress,
         };
@@ -74,6 +75,7 @@ export class ExchangeTestUtil {
           from: eventObj.args.from,
           to: eventObj.args.to,
           amount: eventObj.args.amount,
+          tokenType: pjs.TokenType.ERC1400,
           fromTranche: eventObj.args.fromTranche,
           toTranche: eventObj.args.toTranche,
           data: eventObj.args.data,

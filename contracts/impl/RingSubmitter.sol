@@ -631,7 +631,6 @@ contract RingSubmitter is IRingSubmitter, NoDefaultFunc {
         // the function on the TradeDelegate contract with the generated data.
         address _tradeDelegateAddress = address(ctx.delegate);
         bytes4 batchTransferSelector = ctx.delegate.batchTransfer.selector;
-        uint arrayLength = (ctx.transferPtr - ctx.transferData);
         uint data = ctx.transferData - 68;
         uint ptr = ctx.transferPtr;
         assembly {

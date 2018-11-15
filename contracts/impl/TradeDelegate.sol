@@ -104,16 +104,20 @@ contract TradeDelegate is ITradeDelegate, Claimable, NoDefaultFunc {
     function batchTransfer(
         bytes batch
         )
-        public
+        external
         onlyAuthorized
         notSuspended
     {
         uint batchPtr;
+        uint batchLength;
         assembly {
-            batchPtr := batch
+            batchLength := calldataload(36)
+            batchPtr := mload(0x40)
+            calldatacopy(batchPtr, 68, batchLength)
+            mstore(0x40, add(batchPtr, batchLength))
         }
-        uint start = batchPtr + 32;
-        uint end = start + batch.length;
+        uint start = batchPtr;
+        uint end = start + batchLength;
         uint p = start;
         while(p < end) {
             address token;

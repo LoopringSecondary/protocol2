@@ -118,8 +118,8 @@ library OrderHelper {
 
         // Precalculated EIP712_ORDER_SCHEMA_HASH amd EIP712_DOMAIN_HASH because
         // the solidity compiler doesn't correctly precalculate them for us.
-        bytes32 _EIP712_ORDER_SCHEMA_HASH = EIP712_ORDER_SCHEMA_HASH;
-        bytes32 _EIP712_DOMAIN_HASH = EIP712_DOMAIN_HASH;
+        bytes32 _EIP712_ORDER_SCHEMA_HASH = 0x40b942178d2a51f1f61934268590778feb8114db632db7d88537c98d2b05c5f2;
+        bytes32 _EIP712_DOMAIN_HASH = 0xaea25658c273c666156bd427f83a666135fcde6887a6c25fc1cd1562bc4f3f34;
 
         bytes32 hash;
         assembly {

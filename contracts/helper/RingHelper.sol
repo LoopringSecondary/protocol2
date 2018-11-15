@@ -420,17 +420,14 @@ library RingHelper {
                 // Try to find an existing fee payment of the same token to the same owner
                 let addNew := 1
                 for { let p := data } lt(p, ptr) { p := add(p, 224) } {
-                    let dataToken := mload(add(p,  0))
-                    let dataFrom := mload(add(p, 32))
-                    // let dataTo := mload(add(p, 64))
-                    // let dataTranche := mload(add(p, 160))
                     let dataTransferData := mload(add(p, 192))
-                    // if(token == dataToken && from == dataFrom && to == dataTo &&
+                    // if(token == dataToken && from == dataFrom && to == dataTo && tokenType == dataTokenType &&
                     //    tranche == dataTranche && transferData == dataTransferData)
-                    if and(and(and(and(
-                        eq(token, dataToken),
-                        eq(from, dataFrom)),
+                    if and(and(and(and(and(
+                        eq(token, mload(add(p,  0))),
+                        eq(from, mload(add(p, 32)))),
                         eq(to, mload(add(p, 64)))),
+                        eq(tokenType, mload(add(p, 128)))),
                         eq(tranche, mload(add(p, 160)))),
                         or(
                             and(iszero(mload(transferData)), iszero(mload(dataTransferData))),
