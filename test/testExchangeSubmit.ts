@@ -10,6 +10,7 @@ const {
   OrderRegistry,
   TESTToken,
   SECTESTToken,
+  DummyERC1400Token,
 } = new Artifacts(artifacts);
 
 const ContractOrderOwner = artifacts.require("ContractOrderOwner");
@@ -790,6 +791,148 @@ contract("Exchange_Submit", (accounts: string[]) => {
       await pjs.expectThrow(
         exchangeTestUtil.ringSubmitter.submitRings(bs, {from: exchangeTestUtil.testContext.transactionOrigin}),
         "TRANSFER_FAILURE",
+      );
+    });
+
+    it("order owner should approve the trade delegate as an operator for an ERC1400 token", async () => {
+      const ringsInfo: pjs.RingsInfo = {
+        rings: [[0, 1]],
+        orders: [
+          {
+            tokenS: "STA",
+            tokenB: "WETH",
+            amountS: 100e18,
+            amountB: 10e18,
+            trancheS: "0x" + "00".repeat(32),
+            tokenTypeS: pjs.TokenType.ERC1400,
+          },
+          {
+            tokenS: "WETH",
+            tokenB: "STA",
+            amountS: 10e18,
+            amountB: 100e18,
+            trancheB: "0x" + "00".repeat(32),
+            tokenTypeB: pjs.TokenType.ERC1400,
+          },
+        ],
+      };
+      await exchangeTestUtil.setupRings(ringsInfo);
+
+      const STAToken = DummyERC1400Token.at(exchangeTestUtil.testContext.tokenSymbolAddrMap.get("STA"));
+
+      // TradeDelegate not approved as operator
+      await STAToken.revokeOperator(exchangeTestUtil.context.tradeDelegate.address,
+                                    {from: ringsInfo.orders[0].owner});
+      ringsInfo.expected = {
+        rings: [
+          {
+            orders: [
+              {
+                filledFraction: 0.0,
+              },
+              {
+                filledFraction: 0.0,
+              },
+            ],
+          },
+        ],
+      };
+      await exchangeTestUtil.submitRingsAndSimulate(ringsInfo);
+
+      // TradeDelegate approved as operator
+      await STAToken.authorizeOperator(exchangeTestUtil.context.tradeDelegate.address,
+                                       {from: ringsInfo.orders[0].owner});
+      ringsInfo.expected = {
+        rings: [
+          {
+            orders: [
+              {
+                filledFraction: 1.0,
+              },
+              {
+                filledFraction: 1.0,
+              },
+            ],
+          },
+        ],
+      };
+      await exchangeTestUtil.submitRingsAndSimulate(ringsInfo);
+    });
+
+    it("should not settle rings when token types don't match", async () => {
+      const ringsInfo: pjs.RingsInfo = {
+        rings: [[0, 1]],
+        orders: [
+          {
+            tokenS: "WETH",
+            tokenB: "LRC",
+            amountS: 10e18,
+            amountB: 10e18,
+            tokenTypeB: pjs.TokenType.ERC20,
+          },
+          {
+            tokenS: "LRC",
+            tokenB: "WETH",
+            amountS: 10e18,
+            amountB: 10e18,
+            tokenTypeS: pjs.TokenType.ERC20,
+          },
+        ],
+      };
+      await exchangeTestUtil.setupRings(ringsInfo);
+
+      // Change the token type
+      ringsInfo.orders[0].tokenTypeB = pjs.TokenType.ERC20;
+      ringsInfo.orders[1].tokenTypeS = pjs.TokenType.ERC1400;
+
+      // Setup the ring
+      const ringsGenerator = new pjs.RingsGenerator(exchangeTestUtil.context);
+      await ringsGenerator.setupRingsAsync(ringsInfo);
+      const bs = ringsGenerator.toSubmitableParam(ringsInfo);
+
+      // submitRings should not revert, but the orders should not get filled
+      await exchangeTestUtil.ringSubmitter.submitRings(bs, {from: exchangeTestUtil.testContext.transactionOrigin});
+      await checkFilled(ringsInfo.orders[0], 0);
+      await checkFilled(ringsInfo.orders[1], 0);
+    });
+
+    it("should not be able to pass in the wrong token type", async () => {
+      const ringsInfo: pjs.RingsInfo = {
+        rings: [[0, 1]],
+        orders: [
+          {
+            tokenS: "WETH",
+            tokenB: "LRC",
+            amountS: 10e18,
+            amountB: 10e18,
+            tokenTypeB: pjs.TokenType.ERC20,
+            trancheB: "0x" + "01".repeat(32),
+          },
+          {
+            tokenS: "LRC",
+            tokenB: "WETH",
+            amountS: 10e18,
+            amountB: 10e18,
+            tokenTypeS: pjs.TokenType.ERC20,
+            trancheS: "0x" + "01".repeat(32),
+          },
+        ],
+      };
+      await exchangeTestUtil.setupRings(ringsInfo);
+
+      // Change the token type
+      ringsInfo.orders[0].tokenTypeB = pjs.TokenType.ERC1400;
+      ringsInfo.orders[1].tokenTypeS = pjs.TokenType.ERC1400;
+
+      // Setup the ring
+      const ringsGenerator = new pjs.RingsGenerator(exchangeTestUtil.context);
+      await ringsGenerator.setupRingsAsync(ringsInfo);
+      const bs = ringsGenerator.toSubmitableParam(ringsInfo);
+
+      // submitRings should revert
+      await pjs.expectThrow(
+        exchangeTestUtil.ringSubmitter.submitRings(bs, {from: exchangeTestUtil.testContext.transactionOrigin}),
+        "UNSUPPORTED",
       );
     });
 
