@@ -9,6 +9,7 @@ const {
   OrderBook,
   OrderRegistry,
   TESTToken,
+  SECTESTToken,
 } = new Artifacts(artifacts);
 
 const ContractOrderOwner = artifacts.require("ContractOrderOwner");
@@ -632,7 +633,7 @@ contract("Exchange_Submit", (accounts: string[]) => {
       }
     });
 
-    it("should revert when a token transfer fails", async () => {
+    it("should revert when a ERC20 token transfer fails", async () => {
       const ringsInfo: pjs.RingsInfo = {
         rings: [[0, 1]],
         orders: [
@@ -660,6 +661,130 @@ contract("Exchange_Submit", (accounts: string[]) => {
       // Fail the token transfer by throwing in transferFrom
       const TestToken = TESTToken.at(exchangeTestUtil.testContext.tokenSymbolAddrMap.get("TEST"));
       await TestToken.setTestCase(await TestToken.TEST_REQUIRE_FAIL());
+
+      // submitRings should revert
+      await pjs.expectThrow(
+        exchangeTestUtil.ringSubmitter.submitRings(bs, {from: exchangeTestUtil.testContext.transactionOrigin}),
+        "TRANSFER_FAILURE",
+      );
+    });
+
+    it("should not be able to send ERC1400 tokens when canSend returns false", async () => {
+      const ringsInfo: pjs.RingsInfo = {
+        rings: [[0, 1]],
+        orders: [
+          {
+            tokenS: "WETH",
+            tokenB: "SECTEST",
+            amountS: 10e18,
+            amountB: 10e18,
+            tokenTypeB: pjs.TokenType.ERC1400,
+          },
+          {
+            tokenS: "SECTEST",
+            tokenB: "WETH",
+            amountS: 10e18,
+            amountB: 10e18,
+            tokenTypeS: pjs.TokenType.ERC1400,
+          },
+        ],
+        expected: {
+          rings: [
+            {
+              fail: true,
+            },
+          ],
+        },
+      };
+      await exchangeTestUtil.setupRings(ringsInfo);
+
+      // Disallow the token transfer
+      const TestToken = SECTESTToken.at(exchangeTestUtil.testContext.tokenSymbolAddrMap.get("SECTEST"));
+      await TestToken.setTestCase(await TestToken.TEST_CANSEND_FALSE());
+
+      // Submit the ring. The ring should not settle.
+      await exchangeTestUtil.submitRingsAndSimulate(ringsInfo);
+    });
+
+    it("should be able to send ERC1400 tokens to a different tranche", async () => {
+      const ringsInfo: pjs.RingsInfo = {
+        rings: [[0, 1]],
+        orders: [
+          {
+            tokenS: "WETH",
+            tokenB: "SECTEST",
+            amountS: 10e18,
+            amountB: 10e18,
+            tokenTypeB: pjs.TokenType.ERC1400,
+            trancheB: "0x" + "01".repeat(32),
+          },
+          {
+            tokenS: "SECTEST",
+            tokenB: "WETH",
+            amountS: 10e18,
+            amountB: 10e18,
+            tokenTypeS: pjs.TokenType.ERC1400,
+            trancheS: "0x" + "23".repeat(32),
+          },
+        ],
+        expected: {
+          rings: [
+            {
+              orders: [
+                {
+                  filledFraction: 1.0,
+                },
+                {
+                  filledFraction: 1.0,
+                },
+              ],
+            },
+          ],
+        },
+      };
+      await exchangeTestUtil.setupRings(ringsInfo);
+
+      // Set the destination tranche of the send
+      const TestToken = SECTESTToken.at(exchangeTestUtil.testContext.tokenSymbolAddrMap.get("SECTEST"));
+      await TestToken.setTestCase(await TestToken.TEST_SEND_DIFFERENT_TRANCHE());
+      await TestToken.setDestinationTranche(ringsInfo.orders[0].trancheB);
+
+      // Submit the ring. The ring should not settle.
+      await exchangeTestUtil.submitRingsAndSimulate(ringsInfo);
+    });
+
+    it("should revert when a ERC1400 token transfer fails", async () => {
+      const ringsInfo: pjs.RingsInfo = {
+        rings: [[0, 1]],
+        orders: [
+          {
+            tokenS: "WETH",
+            tokenB: "SECTEST",
+            amountS: 10e18,
+            amountB: 10e18,
+            tokenTypeB: pjs.TokenType.ERC1400,
+            trancheB: "0x" + "01".repeat(32),
+          },
+          {
+            tokenS: "SECTEST",
+            tokenB: "WETH",
+            amountS: 10e18,
+            amountB: 10e18,
+            tokenTypeS: pjs.TokenType.ERC1400,
+            trancheS: "0x" + "01".repeat(32),
+          },
+        ],
+      };
+      await exchangeTestUtil.setupRings(ringsInfo);
+
+      // Setup the ring
+      const ringsGenerator = new pjs.RingsGenerator(exchangeTestUtil.context);
+      await ringsGenerator.setupRingsAsync(ringsInfo);
+      const bs = ringsGenerator.toSubmitableParam(ringsInfo);
+
+      // Fail the token transfer by throwing in transferFrom
+      const TestToken = SECTESTToken.at(exchangeTestUtil.testContext.tokenSymbolAddrMap.get("SECTEST"));
+      await TestToken.setTestCase(await TestToken.TEST_SEND_REQUIRE_FAIL());
 
       // submitRings should revert
       await pjs.expectThrow(

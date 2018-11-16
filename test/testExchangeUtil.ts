@@ -856,13 +856,14 @@ export class ExchangeTestUtil {
       WETHToken,
       STAToken,
       TESTToken,
+      SECTESTToken,
     } = new Artifacts(artifacts);
 
     const tokenSymbolAddrMap = new Map<string, string>();
     const tokenAddrSymbolMap = new Map<string, string>();
     const tokenAddrInstanceMap = new Map<string, any>();
 
-    const [lrc, gto, rdn, rep, weth, sta, test] = await Promise.all([
+    const [lrc, gto, rdn, rep, weth, sta, test, sectest] = await Promise.all([
       LRCToken.deployed(),
       GTOToken.deployed(),
       RDNToken.deployed(),
@@ -870,10 +871,11 @@ export class ExchangeTestUtil {
       WETHToken.deployed(),
       STAToken.deployed(),
       TESTToken.deployed(),
+      SECTESTToken.deployed(),
     ]);
 
     const allERC20Tokens = [lrc, gto, rdn, rep, weth, test];
-    const allERC1400Tokens = [sta];
+    const allERC1400Tokens = [sta, sectest];
 
     tokenSymbolAddrMap.set("LRC", LRCToken.address);
     tokenSymbolAddrMap.set("GTO", GTOToken.address);
@@ -882,6 +884,7 @@ export class ExchangeTestUtil {
     tokenSymbolAddrMap.set("WETH", WETHToken.address);
     tokenSymbolAddrMap.set("STA", STAToken.address);
     tokenSymbolAddrMap.set("TEST", TESTToken.address);
+    tokenSymbolAddrMap.set("SECTEST", SECTESTToken.address);
 
     tokenAddrSymbolMap.set(LRCToken.address, "LRC");
     tokenAddrSymbolMap.set(GTOToken.address, "GTO");
@@ -890,6 +893,7 @@ export class ExchangeTestUtil {
     tokenAddrSymbolMap.set(WETHToken.address, "WETH");
     tokenAddrSymbolMap.set(STAToken.address, "STA");
     tokenAddrSymbolMap.set(TESTToken.address, "TEST");
+    tokenAddrSymbolMap.set(SECTESTToken.address, "SECTEST");
 
     tokenAddrInstanceMap.set(LRCToken.address, lrc);
     tokenAddrInstanceMap.set(GTOToken.address, gto);
@@ -898,6 +902,7 @@ export class ExchangeTestUtil {
     tokenAddrInstanceMap.set(WETHToken.address, weth);
     tokenAddrInstanceMap.set(STAToken.address, sta);
     tokenAddrInstanceMap.set(TESTToken.address, test);
+    tokenAddrInstanceMap.set(SECTESTToken.address, sectest);
 
     const deployer = accounts[0];
     const transactionOrigin = accounts[1];

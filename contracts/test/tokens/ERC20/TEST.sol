@@ -16,8 +16,8 @@
 */
 pragma solidity 0.4.24;
 
-import "../DummyToken.sol";
-import "../../iface/IRingSubmitter.sol";
+import "../../DummyToken.sol";
+import "../../../iface/IRingSubmitter.sol";
 
 /// @author Brecht Devos - <brecht@loopring.org>
 contract TEST is DummyToken {

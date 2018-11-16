@@ -16,13 +16,13 @@
 */
 pragma solidity 0.4.24;
 
-import "../DummyToken.sol";
+import "../../DummyToken.sol";
 
-contract WETH is DummyToken {
+contract GTO is DummyToken {
 
     constructor() DummyToken(
-        "WETH_TEST",
-        "WETH",
+        "GTO_TEST",
+        "GTO",
         18,
         10 ** 27
     ) public

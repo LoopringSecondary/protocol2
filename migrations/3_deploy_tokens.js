@@ -5,6 +5,7 @@ var REPToken                = artifacts.require("./test/tokens/REP.sol");
 var WETHToken               = artifacts.require("./test/tokens/WETH.sol");
 var STAToken                = artifacts.require("./test/tokens/STA.sol");
 var TESTToken               = artifacts.require("./test/tokens/TEST.sol");
+var SECTESTToken            = artifacts.require("./test/tokens/SECTEST.sol");
 
 module.exports = function(deployer, network, accounts) {
   if (network === "live") {
@@ -17,6 +18,7 @@ module.exports = function(deployer, network, accounts) {
     deployer.deploy(WETHToken);
     deployer.deploy(STAToken);
     deployer.deploy(TESTToken);
+    deployer.deploy(SECTESTToken);
   }
 
 };

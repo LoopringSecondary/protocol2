@@ -18,8 +18,10 @@ export class Artifacts {
   public RDNToken: any;
   public REPToken: any;
   public WETHToken: any;
-  public STAToken: any;
   public TESTToken: any;
+  public DummyERC1400Token: any;
+  public STAToken: any;
+  public SECTESTToken: any;
   public DeserializerTest: any;
   constructor(artifacts: any) {
     this.RingSubmitter = artifacts.require("impl/RingSubmitter");
@@ -35,13 +37,15 @@ export class Artifacts {
     this.BurnRateTable = artifacts.require("impl/BurnRateTable");
     this.BurnManager = artifacts.require("impl/BurnManager");
     this.DummyToken = artifacts.require("test/DummyToken");
-    this.LRCToken = artifacts.require("test/tokens/LRC");
-    this.GTOToken = artifacts.require("test/tokens/GTO");
-    this.RDNToken = artifacts.require("test/tokens/RDN");
-    this.REPToken = artifacts.require("test/tokens/REP");
-    this.WETHToken = artifacts.require("test/tokens/WETH");
-    this.STAToken = artifacts.require("test/tokens/STA");
-    this.TESTToken = artifacts.require("test/tokens/TEST");
+    this.LRCToken = artifacts.require("test/tokens/ERC20/LRC");
+    this.GTOToken = artifacts.require("test/tokens/ERC20/GTO");
+    this.RDNToken = artifacts.require("test/tokens/ERC20/RDN");
+    this.REPToken = artifacts.require("test/tokens/ERC20/REP");
+    this.WETHToken = artifacts.require("test/tokens/ERC20/WETH");
+    this.TESTToken = artifacts.require("test/tokens/ERC20/TEST");
+    this.DummyERC1400Token = artifacts.require("test/DummyERC1400Token");
+    this.STAToken = artifacts.require("test/tokens/ERC1400/STA");
+    this.SECTESTToken = artifacts.require("test/tokens/ERC1400/SECTEST");
     this.DeserializerTest = artifacts.require("test/DeserializerTest");
   }
 }

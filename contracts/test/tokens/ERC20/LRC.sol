@@ -16,7 +16,7 @@
 */
 pragma solidity 0.4.24;
 
-import "../DummyToken.sol";
+import "../../DummyToken.sol";
 
 contract LRC is DummyToken {
 

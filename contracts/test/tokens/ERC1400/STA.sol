@@ -16,7 +16,7 @@
 */
 pragma solidity 0.4.24;
 
-import "../DummyERC1400Token.sol";
+import "../../DummyERC1400Token.sol";
 
 contract STA is DummyERC1400Token {
 

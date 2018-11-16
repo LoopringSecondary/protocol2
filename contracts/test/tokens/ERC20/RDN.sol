@@ -16,13 +16,13 @@
 */
 pragma solidity 0.4.24;
 
-import "../DummyToken.sol";
+import "../../DummyToken.sol";
 
-contract REP is DummyToken {
+contract RDN is DummyToken {
 
     constructor() DummyToken(
-        "REP_TEST",
-        "REP",
+        "RDN_TEST",
+        "RDN",
         18,
         10 ** 27
     ) public
