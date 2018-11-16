@@ -617,11 +617,12 @@ export class ExchangeTestUtil {
       // Add an initial fee payment to all addresses to make gas use more realistic
       // (gas cost to change variable in storage: zero -> non-zero: 20,000 gas, non-zero -> non-zero: 5,000 gas)
       // Addresses getting fees will be getting a lot of fees so a balance of 0 is not realistic
+      const minerFeeRecipient = ringsInfo.feeRecipient ? ringsInfo.feeRecipient : ringsInfo.transactionOrigin;
       const feePayments = new FeePayments();
       for (const order of ringsInfo.orders) {
         // All tokens that could be paid to all recipients for this order
         const tokens = [order.feeToken, order.tokenS, order.tokenB];
-        const feeRecipients = [order.owner, ringsInfo.feeRecipient, this.context.feeHolder.address, order.walletAddr];
+        const feeRecipients = [order.owner, minerFeeRecipient, this.context.feeHolder.address, order.walletAddr];
         for (const token of tokens) {
           for (const feeRecipient of feeRecipients) {
             if (feeRecipient) {
@@ -629,11 +630,10 @@ export class ExchangeTestUtil {
             }
           }
         }
-        const minerFeeRecipient = ringsInfo.feeRecipient ? ringsInfo.feeRecipient : ringsInfo.transactionOrigin;
         // Add balances to the feeHolder contract
         for (const token of tokens) {
-          if (this.testContext.allERC20Tokens.indexOf(token) > -1) {
-            const Token = this.testContext.tokenAddrInstanceMap.get(token);
+          const Token = this.testContext.tokenAddrInstanceMap.get(token);
+          if (this.testContext.allERC20Tokens.indexOf(Token) > -1) {
             await Token.setBalance(this.context.feeHolder.address, 1);
             await Token.addBalance(minerFeeRecipient, 1);
           }
