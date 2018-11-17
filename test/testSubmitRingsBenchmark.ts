@@ -40,6 +40,7 @@ contract("SubmitRings_Benchmark", (accounts: string[]) => {
     let simpleRingGas = 0;
     let typicalRingGas = 0;
     let p2pRingGas = 0;
+    let erc1400RingGas = 0;
     let multiRingGas = 0;
 
     it("the first one, always cost more gas than expected, ignore this one", async () => {
@@ -163,6 +164,40 @@ contract("SubmitRings_Benchmark", (accounts: string[]) => {
       p2pRingGas = res.tx.receipt.gasUsed;
     });
 
+    it("single ring with ERC1400 token", async () => {
+      const ringsInfo: pjs.RingsInfo = {
+        rings: [[0, 1]],
+        orders: [
+          {
+            tokenS: "WETH",
+            tokenB: "STA",
+            amountS: 1e18,
+            amountB: 3000e18,
+            trancheB: "0x" + "01".repeat(32),
+            tokenTypeB: pjs.TokenType.ERC1400,
+            balanceS: 1e26,
+            balanceFee: 1e26,
+            balanceB: 1e26,
+          },
+          {
+            tokenS: "STA",
+            tokenB: "WETH",
+            amountS: 3000e18,
+            amountB: 1e18,
+            tokenTypeS: pjs.TokenType.ERC1400,
+            trancheS: "0x" + "01".repeat(32),
+            transferDataS: "0x0123456789abcdef",
+            balanceS: 1e26,
+            balanceFee: 1e26,
+            balanceB: 1e26,
+          },
+        ],
+      };
+      await exchangeTestUtil.setupRings(ringsInfo);
+      const res = await exchangeTestUtil.submitRingsAndSimulate(ringsInfo, dummyExchange);
+      erc1400RingGas = res.tx.receipt.gasUsed;
+    });
+
     it("typical multi-ring case where an order is filled by multiple orders", async () => {
       const ringsInfo: pjs.RingsInfo = {
         rings: [[0, 1], [0, 2]],
@@ -211,9 +246,10 @@ contract("SubmitRings_Benchmark", (accounts: string[]) => {
       pjs.logInfo("simpleRingGas:  " + simpleRingGas);
       pjs.logInfo("typicalRingGas: " + typicalRingGas);
       pjs.logInfo("p2pRingGas:     " + p2pRingGas);
+      pjs.logInfo("erc1400RingGas: " + erc1400RingGas);
       pjs.logInfo("multiRingGas:   " + multiRingGas);
 
-      const average = Math.floor((simpleRingGas + typicalRingGas + p2pRingGas + multiRingGas) / 4);
+      const average = Math.floor((simpleRingGas + typicalRingGas + p2pRingGas + erc1400RingGas + multiRingGas) / 5);
       pjs.logInfo("average:        " + average);
       pjs.logInfo("-".repeat(32));
     });
