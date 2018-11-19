@@ -127,7 +127,11 @@ library RingHelper {
                     ring.participations[i].fillAmountS,
                     ring.participations[i].order.transferDataS
                 );
-                ring.valid = ring.valid && ESC == 0x01;
+                // EIP-1066 application-specific status codes:
+                // 0xA0: Transfer Verified - Unrestricted
+                // 0xA1: Transfer Verified - On-Chain approval for restricted token
+                // 0xA2: Transfer Verified - Off-Chain approval for restricted token
+                ring.valid = ring.valid && (ESC >= 0xA0 && ESC <= 0xA2);
                 ring.valid = ring.valid && destTranche == ring.participations[prevIndex].order.trancheB;
             }
 

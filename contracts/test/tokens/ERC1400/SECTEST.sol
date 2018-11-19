@@ -52,9 +52,9 @@ contract SECTEST is DummyERC1400Token {
         returns (byte code, bytes32 description, bytes32 destTranche)
     {
         if (testCase == TEST_CANSEND_FALSE) {
-            code = 0x00;
+            code = 0xA3;
         } else {
-            code = 0x01;
+            code = 0xA2;
         }
         description = 0x0;
         if (testCase == TEST_SEND_DIFFERENT_TRANCHE) {

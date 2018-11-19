@@ -472,7 +472,7 @@ contract ERC1400Token is PartialFungibleToken, ERC1400, Errors {
         view
         returns (byte code, bytes32 description, bytes32 destTranche)
     {
-        code = 0x01;
+        code = 0xA0;
         description = 0x0;
         destTranche = _tranche;
     }
