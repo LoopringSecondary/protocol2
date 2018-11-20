@@ -2725,4 +2725,45 @@ export const ringsInfoList: RingsInfo[] = [
       ],
     },
   },
+
+  {
+    description: "single 2-size ring, margin in ERC1400 token should not get paid",
+    rings: [[0, 1]],
+    orders: [
+      {
+        index: 0,
+        tokenS: "STA",
+        trancheS: "0x" + "ab".repeat(32),
+        tokenTypeS: TokenType.ERC1400,
+        tokenB: "WETH",
+        amountS: 100e18,
+        amountB: 10e18,
+      },
+      {
+        index: 1,
+        tokenS: "WETH",
+        tokenB: "STA",
+        trancheB: "0x" + "ab".repeat(32),
+        tokenTypeB: TokenType.ERC1400,
+        amountS: 5e18,
+        amountB: 45e18,
+      },
+    ],
+    expected: {
+      rings: [
+        {
+          orders: [
+            {
+              filledFraction: 0.5,
+              margin: 0,
+            },
+            {
+              filledFraction: 1.0,
+              margin: 0,
+            },
+          ],
+        },
+      ],
+    },
+  },
 ];
