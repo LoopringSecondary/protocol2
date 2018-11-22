@@ -400,6 +400,7 @@ library RingHelper {
                 p.order.owner,
                 p.order.broker,
                 p.order.tokenS,
+                p.order.trancheS,
                 amountSToBuyer + amountSToFeeHolder + margin
             );
             onTokenSpent(
@@ -407,6 +408,7 @@ library RingHelper {
                 p.order.owner,
                 p.order.broker,
                 p.order.feeToken,
+                0x0,
                 amountFeeToFeeHolder
             );
         }
@@ -481,6 +483,7 @@ library RingHelper {
         address owner,
         address broker,
         address token,
+        bytes32 tranche,
         uint    amount
         )
         internal
@@ -492,6 +495,7 @@ library RingHelper {
                 owner,
                 broker,
                 token,
+                tranche,
                 amount
             );
         }

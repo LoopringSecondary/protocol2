@@ -27,7 +27,8 @@ library BrokerInterceptorProxy {
         address brokerInterceptor,
         address owner,
         address broker,
-        address token
+        address token,
+        bytes32 tranche
         )
         internal
         returns (uint allowance)
@@ -36,7 +37,8 @@ library BrokerInterceptorProxy {
             0xe7092b41, // bytes4(keccak256("getAllowance(address,address,address)"))
             owner,
             broker,
-            token
+            token,
+            tranche
         );
         // Just return an allowance of 0 when something goes wrong
         if (success) {
@@ -62,6 +64,7 @@ library BrokerInterceptorProxy {
         address owner,
         address broker,
         address token,
+        bytes32 tranche,
         uint    amount
         )
         internal
@@ -72,6 +75,7 @@ library BrokerInterceptorProxy {
             owner,
             broker,
             token,
+            tranche,
             amount
         );
         if (ok) {

@@ -441,6 +441,7 @@ library OrderHelper {
     /// @return Amount of ERC20 token that can be spent by the broker
     function getBrokerAllowance(
         address tokenAddress,
+        bytes32 tranche,
         address owner,
         address broker,
         address brokerInterceptor
@@ -451,7 +452,8 @@ library OrderHelper {
         allowance = brokerInterceptor.getAllowanceSafe(
             owner,
             broker,
-            tokenAddress
+            tokenAddress,
+            tranche
         );
     }
 
@@ -493,6 +495,7 @@ library OrderHelper {
             if (!brokerSpendable.initialized) {
                 brokerSpendable.amount = getBrokerAllowance(
                     tokenAddress,
+                    tranche,
                     owner,
                     broker,
                     brokerInterceptor

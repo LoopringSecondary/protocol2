@@ -25,11 +25,13 @@ contract IBrokerInterceptor {
     /// @param owner The owner for which the broker can spend funds
     /// @param broker The broker of the owner
     /// @param token The token to spend
+    /// @param tranche The tranche of the token to spend (0x0 if not applicable)
     /// @return The allowance
     function getAllowance(
         address owner,
         address broker,
-        address token
+        address token,
+        bytes32 tranche
         )
         public
         view
@@ -44,11 +46,13 @@ contract IBrokerInterceptor {
     /// @param broker The broker of the owner
     /// @param token The token spent
     /// @param amount The amount spent
+    /// @param tranche The tranche of the token spent (0x0 if not applicable)
     /// @return True if successful, false otherwise.
     function onTokenSpent(
         address owner,
         address broker,
         address token,
+        bytes32 tranche,
         uint    amount
         )
         public
