@@ -24,9 +24,8 @@ contract SECTEST is DummyERC1400Token {
     // Test cases
     uint8 public constant TEST_NOTHING = 0;
     uint8 public constant TEST_CANSEND_FALSE = 1;
-    uint8 public constant TEST_SEND_DIFFERENT_TRANCHE = 2;
-    uint8 public constant TEST_SEND_RETURN_FALSE = 3;
-    uint8 public constant TEST_SEND_REQUIRE_FAIL = 4;
+    uint8 public constant TEST_SEND_RETURN_FALSE = 2;
+    uint8 public constant TEST_SEND_REQUIRE_FAIL = 3;
 
     uint public testCase = TEST_NOTHING;
     bytes32 public destinationTranche = 0x0;
@@ -45,29 +44,26 @@ contract SECTEST is DummyERC1400Token {
         address/* _to*/,
         bytes32 _tranche,
         uint256 _amount,
-        bytes/* _data*/
+        bytes _data
         )
         external
         view
         returns (byte code, bytes32 description, bytes32 destTranche)
     {
+        destTranche = _getDestinationTranche(_tranche, _data);
+
         // Always allow the send when the balance is valid
         uint balance = balanceOfTranche(_tranche, _from);
         if (balance < _amount) {
             code = 0x00;
             description = 0x0;
-            destTranche = 0x0;
         } else {
             code = 0xA2;
             description = 0x0;
-            destTranche = _tranche;
         }
         // Test cases
         if (testCase == TEST_CANSEND_FALSE) {
             code = 0xA3;
-        }
-        if (testCase == TEST_SEND_DIFFERENT_TRANCHE) {
-            destTranche = destinationTranche;
         }
     }
 
@@ -76,16 +72,13 @@ contract SECTEST is DummyERC1400Token {
         address _to,
         uint256 _amount,
         bytes32 _tranche,
-        bytes/* _data*/,
-        bytes/* _operatorData*/
+        bytes _data,
+        bytes _operatorData
         )
         internal
         returns (byte, bytes32)
     {
-        bytes32 destTranche = _tranche;
-        if (testCase == TEST_SEND_DIFFERENT_TRANCHE) {
-            destTranche = destinationTranche;
-        }
+        bytes32 destTranche = _getDestinationTranche(_tranche, _data);
 
         _ensureTrench(_from, _tranche);
         _ensureTrench(_to, destTranche);
@@ -130,13 +123,4 @@ contract SECTEST is DummyERC1400Token {
     {
         testCase = _testCase;
     }
-
-    function setDestinationTranche(
-        bytes32 _destTranche
-        )
-        external
-    {
-        destinationTranche = _destTranche;
-    }
-
 }

@@ -707,53 +707,6 @@ contract("Exchange_Submit", (accounts: string[]) => {
       await exchangeTestUtil.submitRingsAndSimulate(ringsInfo);
     });
 
-    it("should be able to send ERC1400 tokens to a different tranche", async () => {
-      const ringsInfo: pjs.RingsInfo = {
-        rings: [[0, 1]],
-        orders: [
-          {
-            tokenS: "WETH",
-            tokenB: "SECTEST",
-            amountS: 10e18,
-            amountB: 10e18,
-            tokenTypeB: pjs.TokenType.ERC1400,
-            trancheB: "0x" + "01".repeat(32),
-          },
-          {
-            tokenS: "SECTEST",
-            tokenB: "WETH",
-            amountS: 10e18,
-            amountB: 10e18,
-            tokenTypeS: pjs.TokenType.ERC1400,
-            trancheS: "0x" + "23".repeat(32),
-          },
-        ],
-        expected: {
-          rings: [
-            {
-              orders: [
-                {
-                  filledFraction: 1.0,
-                },
-                {
-                  filledFraction: 1.0,
-                },
-              ],
-            },
-          ],
-        },
-      };
-      await exchangeTestUtil.setupRings(ringsInfo);
-
-      // Set the destination tranche of the send
-      const TestToken = SECTESTToken.at(exchangeTestUtil.testContext.tokenSymbolAddrMap.get("SECTEST"));
-      await TestToken.setTestCase(await TestToken.TEST_SEND_DIFFERENT_TRANCHE());
-      await TestToken.setDestinationTranche(ringsInfo.orders[0].trancheB);
-
-      // Submit the ring. The ring should not settle.
-      await exchangeTestUtil.submitRingsAndSimulate(ringsInfo);
-    });
-
     it("should revert when a ERC1400 token transfer fails", async () => {
       const ringsInfo: pjs.RingsInfo = {
         rings: [[0, 1]],

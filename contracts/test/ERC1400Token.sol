@@ -177,30 +177,32 @@ contract PartialFungibleToken is ERC1410 {
         }
     }
 
-    function _sendTranche(address _from, address _to, uint256 _amount, bytes32 _tranche, bytes/* _data*/, bytes /*_operatorData*/)
+    function _sendTranche(address _from, address _to, uint256 _amount, bytes32 _tranche, bytes _data, bytes /*_operatorData*/)
         internal
         returns (byte, bytes32)
     {
+        bytes32 destTranche = _getDestinationTranche(_tranche, _data);
+
         _ensureTrench(_from, _tranche);
-        _ensureTrench(_to, _tranche);
+        _ensureTrench(_to, destTranche);
 
         if (tranches[_from][trancheToIndex[_from][_tranche] - 1].amount < _amount) {
             return (0x00, bytes32(""));
         }
 
         // Checking the overflow condition in addition TODO: Create a library for that similar to SafeMath
-        if (tranches[_to][trancheToIndex[_to][_tranche] - 1].amount > tranches[_to][trancheToIndex[_to][_tranche] - 1].amount + _amount) {
+        if (tranches[_to][trancheToIndex[_to][destTranche] - 1].amount > tranches[_to][trancheToIndex[_to][destTranche] - 1].amount + _amount) {
             return (0x10, bytes32(""));
         }
 
         tranches[_from][trancheToIndex[_from][_tranche] - 1].amount = tranches[_from][trancheToIndex[_from][_tranche] - 1].amount - _amount;
         balances[_from] = balances[_from] - _amount;
-        tranches[_to][trancheToIndex[_to][_tranche] - 1].amount = tranches[_to][trancheToIndex[_to][_tranche] - 1].amount + _amount;
+        tranches[_to][trancheToIndex[_to][destTranche] - 1].amount = tranches[_to][trancheToIndex[_to][destTranche] - 1].amount + _amount;
         balances[_to] = balances[_to] + _amount;
 
         // TODO: If transferring to a registered contract, call its callback function
 
-        return (0x01, _tranche);
+        return (0x01, destTranche);
     }
 
     /// @notice Transfers the ownership of tokens from a specified tranche from one address to another address
@@ -386,6 +388,37 @@ contract PartialFungibleToken is ERC1410 {
         );
         return 0x01;
     }
+
+    function _getDestinationTranche(
+        bytes32 _tranche,
+        bytes   _data
+        )
+        internal
+        pure
+        returns (bytes32)
+    {
+        // We interpret the last 32 bytes of the transfer data to be the destination tranche
+        // when the transfer data starts with 1 zero byte followed by 32 bytes.
+        // THIS IS NOT PART OF THE ERC1400 STANDARD!
+        // EVERY TOKEN CAN INTERPRET THE TRANSFER DATA DIFFERENTLY!
+        if (_data.length == 32 + 1) {
+            uint8 dataType;
+            assembly {
+                dataType := mload(add(_data, 1))
+            }
+            if (dataType == uint8(0)) {
+                bytes32 destTranche;
+                assembly {
+                    destTranche := mload(add(_data, 33))
+                }
+                return destTranche;
+            } else {
+                return _tranche;
+            }
+        } else {
+            return _tranche;
+        }
+    }
 }
 
 contract ERC1400Token is PartialFungibleToken, ERC1400, Errors {
@@ -469,22 +502,22 @@ contract ERC1400Token is PartialFungibleToken, ERC1400, Errors {
         address/* _to*/,
         bytes32 _tranche,
         uint256 _amount,
-        bytes/* _data*/
+        bytes _data
         )
         external
         view
         returns (byte code, bytes32 description, bytes32 destTranche)
     {
+        destTranche = _getDestinationTranche(_tranche, _data);
+
         // Always allow the send when the balance is valid
         uint balance = balanceOfTranche(_tranche, _from);
         if (balance < _amount) {
             code = 0x00;
             description = 0x0;
-            destTranche = 0x0;
         } else {
             code = 0xA0;
             description = 0x0;
-            destTranche = _tranche;
         }
     }
 

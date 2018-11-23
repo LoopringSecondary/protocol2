@@ -2679,6 +2679,44 @@ export const ringsInfoList: RingsInfo[] = [
   },
 
   {
+    description: "single 2-size ring, selling ERC1400 token to different tranche",
+    rings: [[0, 1]],
+    orders: [
+      {
+        tokenS: "WETH",
+        tokenB: "STB",
+        amountS: 10e18,
+        amountB: 10e18,
+        tokenTypeB: TokenType.ERC1400,
+        trancheB: "0x" + "01".repeat(32),
+      },
+      {
+        tokenS: "STB",
+        tokenB: "WETH",
+        amountS: 10e18,
+        amountB: 10e18,
+        tokenTypeS: TokenType.ERC1400,
+        trancheS: "0x" + "23".repeat(32),
+        transferDataS: "0x00" + "01".repeat(32),           // destination tranche in transfer data (TOKEN SPECIFIC!)
+      },
+    ],
+    expected: {
+      rings: [
+        {
+          orders: [
+            {
+              filledFraction: 1.0,
+            },
+            {
+              filledFraction: 1.0,
+            },
+          ],
+        },
+      ],
+    },
+  },
+
+  {
     description: "single 2-size ring, selling ERC1400 token, tranche mismatch",
     rings: [[0, 1]],
     orders: [
