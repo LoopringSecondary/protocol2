@@ -47,7 +47,7 @@ contract DummyBrokerInterceptor is IBrokerInterceptor {
         address owner,
         address broker,
         address token,
-        bytes32 tranche
+        bytes32/* tranche*/
         )
         public
         view
@@ -63,7 +63,7 @@ contract DummyBrokerInterceptor is IBrokerInterceptor {
         address owner,
         address broker,
         address token,
-        bytes32 tranche,
+        bytes32/* tranche*/,
         uint    amount
         )
         public

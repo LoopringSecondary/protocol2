@@ -859,6 +859,7 @@ export class ExchangeTestUtil {
       REPToken,
       WETHToken,
       STAToken,
+      STBToken,
       TESTToken,
       SECTESTToken,
     } = new Artifacts(artifacts);
@@ -867,19 +868,20 @@ export class ExchangeTestUtil {
     const tokenAddrSymbolMap = new Map<string, string>();
     const tokenAddrInstanceMap = new Map<string, any>();
 
-    const [lrc, gto, rdn, rep, weth, sta, test, sectest] = await Promise.all([
+    const [lrc, gto, rdn, rep, weth, sta, stb, test, sectest] = await Promise.all([
       LRCToken.deployed(),
       GTOToken.deployed(),
       RDNToken.deployed(),
       REPToken.deployed(),
       WETHToken.deployed(),
       STAToken.deployed(),
+      STBToken.deployed(),
       TESTToken.deployed(),
       SECTESTToken.deployed(),
     ]);
 
     const allERC20Tokens = [lrc, gto, rdn, rep, weth, test];
-    const allERC1400Tokens = [sta, sectest];
+    const allERC1400Tokens = [sta, stb, sectest];
 
     tokenSymbolAddrMap.set("LRC", LRCToken.address);
     tokenSymbolAddrMap.set("GTO", GTOToken.address);
@@ -887,6 +889,7 @@ export class ExchangeTestUtil {
     tokenSymbolAddrMap.set("REP", REPToken.address);
     tokenSymbolAddrMap.set("WETH", WETHToken.address);
     tokenSymbolAddrMap.set("STA", STAToken.address);
+    tokenSymbolAddrMap.set("STB", STBToken.address);
     tokenSymbolAddrMap.set("TEST", TESTToken.address);
     tokenSymbolAddrMap.set("SECTEST", SECTESTToken.address);
 
@@ -896,6 +899,7 @@ export class ExchangeTestUtil {
     tokenAddrSymbolMap.set(REPToken.address, "REP");
     tokenAddrSymbolMap.set(WETHToken.address, "WETH");
     tokenAddrSymbolMap.set(STAToken.address, "STA");
+    tokenAddrSymbolMap.set(STBToken.address, "STB");
     tokenAddrSymbolMap.set(TESTToken.address, "TEST");
     tokenAddrSymbolMap.set(SECTESTToken.address, "SECTEST");
 
@@ -905,6 +909,7 @@ export class ExchangeTestUtil {
     tokenAddrInstanceMap.set(REPToken.address, rep);
     tokenAddrInstanceMap.set(WETHToken.address, weth);
     tokenAddrInstanceMap.set(STAToken.address, sta);
+    tokenAddrInstanceMap.set(STBToken.address, stb);
     tokenAddrInstanceMap.set(TESTToken.address, test);
     tokenAddrInstanceMap.set(SECTESTToken.address, sectest);
 

@@ -102,7 +102,7 @@ contract TradeDelegate is ITradeDelegate, Claimable, NoDefaultFunc {
     }
 
     function batchTransfer(
-        bytes batch
+        bytes/* batch*/
         )
         external
         onlyAuthorized

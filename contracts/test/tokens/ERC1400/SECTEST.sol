@@ -42,25 +42,32 @@ contract SECTEST is DummyERC1400Token {
     // Transfer Validity
     function canSend(
         address _from,
-        address _to,
+        address/* _to*/,
         bytes32 _tranche,
         uint256 _amount,
-        bytes _data
+        bytes/* _data*/
         )
         external
         view
         returns (byte code, bytes32 description, bytes32 destTranche)
     {
-        if (testCase == TEST_CANSEND_FALSE) {
-            code = 0xA3;
+        // Always allow the send when the balance is valid
+        uint balance = balanceOfTranche(_tranche, _from);
+        if (balance < _amount) {
+            code = 0x00;
+            description = 0x0;
+            destTranche = 0x0;
         } else {
             code = 0xA2;
+            description = 0x0;
+            destTranche = _tranche;
         }
-        description = 0x0;
+        // Test cases
+        if (testCase == TEST_CANSEND_FALSE) {
+            code = 0xA3;
+        }
         if (testCase == TEST_SEND_DIFFERENT_TRANCHE) {
             destTranche = destinationTranche;
-        } else {
-            destTranche = _tranche;
         }
     }
 
@@ -69,8 +76,8 @@ contract SECTEST is DummyERC1400Token {
         address _to,
         uint256 _amount,
         bytes32 _tranche,
-        bytes _data,
-        bytes _operatorData
+        bytes/* _data*/,
+        bytes/* _operatorData*/
         )
         internal
         returns (byte, bytes32)

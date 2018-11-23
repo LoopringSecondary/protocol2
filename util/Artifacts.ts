@@ -21,6 +21,7 @@ export class Artifacts {
   public TESTToken: any;
   public DummyERC1400Token: any;
   public STAToken: any;
+  public STBToken: any;
   public SECTESTToken: any;
   public DeserializerTest: any;
   constructor(artifacts: any) {
@@ -45,6 +46,7 @@ export class Artifacts {
     this.TESTToken = artifacts.require("test/tokens/ERC20/TEST");
     this.DummyERC1400Token = artifacts.require("test/DummyERC1400Token");
     this.STAToken = artifacts.require("test/tokens/ERC1400/STA");
+    this.STBToken = artifacts.require("test/tokens/ERC1400/STB");
     this.SECTESTToken = artifacts.require("test/tokens/ERC1400/SECTEST");
     this.DeserializerTest = artifacts.require("test/DeserializerTest");
   }

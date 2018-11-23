@@ -1,7 +1,7 @@
 import { BigNumber } from "bignumber.js";
 import BN = require("bn.js");
 import abi = require("ethereumjs-abi");
-import { Bitstream, expectThrow, TokenType } from "protocol2-js";
+import { BalanceBook, Bitstream, expectThrow, TokenType } from "protocol2-js";
 import { Artifacts } from "../util/Artifacts";
 
 const {
@@ -15,6 +15,7 @@ const {
   TESTToken,
   DummyERC1400Token,
   STAToken,
+  STBToken,
   SECTESTToken,
 } = new Artifacts(artifacts);
 
@@ -51,7 +52,8 @@ contract("TradeDelegate", (accounts: string[]) => {
   const user2 = accounts[6];
   const user3 = accounts[7];
   const user4 = accounts[8];
-  const emptyAddr = "0x0000000000000000000000000000000000000000";
+  const emptyAddr = "0x" + "0".repeat(40);
+  const zeroTranche = "0x" + "0".repeat(64);
   const tranche1 = "0x" + "01".repeat(32);
   const tranche2 = "0x" + "23".repeat(32);
 
@@ -64,6 +66,7 @@ contract("TradeDelegate", (accounts: string[]) => {
   let erc20Token3: string;
   let erc20Token4: string;
   let erc1400Token1: string;
+  let erc1400Token2: string;
 
   let TestToken: any;
   let testToken: string;
@@ -87,7 +90,7 @@ contract("TradeDelegate", (accounts: string[]) => {
       to,
       amount,
       tokenType: TokenType.ERC20,
-      tranche: "0x0",
+      tranche: zeroTranche,
       transferData: "0x",
     };
     transfers.push(transfer);
@@ -143,9 +146,11 @@ contract("TradeDelegate", (accounts: string[]) => {
       bitstream.addAddress(transfer.from, 32);
       bitstream.addAddress(transfer.to, 32);
       bitstream.addNumber(transfer.amount, 32);
-      bitstream.addNumber(0, 32);
-      bitstream.addNumber(0, 32);
-      bitstream.addNumber(0, 32);
+      bitstream.addNumber(transfer.tokenType === TokenType.ERC20 ? 0 : 1, 32);
+      bitstream.addHex(transfer.tranche);
+      assert(transfer.transferData.length % 2 === 0, "Transfer data needs to be aligned to a byte");
+      bitstream.addNumber(transfer.transferData.length / 2 - 1, 32);
+      bitstream.addHex(transfer.transferData);
     }
     return bitstream.getData();
   };
@@ -174,7 +179,7 @@ contract("TradeDelegate", (accounts: string[]) => {
     return bitstream.getBytes32Array();
   };
 
-  const setUserBalance = async (token: string, user: string, balance: number, approved?: number) => {
+  const setERC20UserBalance = async (token: string, user: string, balance: number, approved?: number) => {
     const dummyToken = await DummyToken.at(token);
     await dummyToken.setBalance(user, balance);
     const approvedAmount = approved ? approved : balance;
@@ -220,33 +225,47 @@ contract("TradeDelegate", (accounts: string[]) => {
 
   const batchTransferChecked = async (transfers: TokenTransfer[]) => {
     // Calculate expected balances
-    const balances: { [id: string]: any; } = {};
+    const balances = new BalanceBook();
     for (const transfer of transfers) {
-      const dummyToken = await DummyToken.at(transfer.token);
-      if (!balances[transfer.token]) {
-        balances[transfer.token] = {};
+      if (transfer.tokenType === TokenType.ERC20) {
+        const dummyToken = await DummyToken.at(transfer.token);
+        const balanceFrom = await dummyToken.balanceOf(transfer.from);
+        const balanceTo = await dummyToken.balanceOf(transfer.to);
+        balances.setBalance(transfer.from, transfer.token, transfer.tranche, balanceFrom);
+        balances.setBalance(transfer.to, transfer.token, transfer.tranche, balanceTo);
+      } else if (transfer.tokenType === TokenType.ERC1400) {
+        const dummyToken = await DummyERC1400Token.at(transfer.token);
+        const balanceFrom = await dummyToken.balanceOfTranche(transfer.tranche, transfer.from);
+        const balanceTo = await dummyToken.balanceOfTranche(transfer.tranche, transfer.to);
+        balances.setBalance(transfer.from, transfer.token, transfer.tranche, balanceFrom);
+        balances.setBalance(transfer.to, transfer.token, transfer.tranche, balanceTo);
       }
-      if (!balances[transfer.token][transfer.from]) {
-        balances[transfer.token][transfer.from] = (await dummyToken.balanceOf(transfer.from)).toNumber();
-      }
-      if (!balances[transfer.token][transfer.to]) {
-        balances[transfer.token][transfer.to] = (await dummyToken.balanceOf(transfer.to)).toNumber();
-      }
-      balances[transfer.token][transfer.from] -= transfer.amount;
-      balances[transfer.token][transfer.to] += transfer.amount;
+    }
+    // Emulate transfers
+    for (const transfer of transfers) {
+      balances.addBalance(transfer.from, transfer.token, transfer.tranche, new BigNumber(-transfer.amount, 10));
+      balances.addBalance(transfer.to, transfer.token, transfer.tranche, new BigNumber(transfer.amount, 10));
     }
     // Update fee balances
     const batch = toTransferBatch(transfers);
     await dummyExchange1.batchTransfer(batch);
     // Check if we get the expected results
     for (const transfer of transfers) {
-      const dummyToken = await DummyToken.at(transfer.token);
-      const balanceFrom = (await dummyToken.balanceOf(transfer.from)).toNumber();
-      const balanceTo = (await dummyToken.balanceOf(transfer.to)).toNumber();
-      const expectedBalanceFrom = balances[transfer.token][transfer.from];
-      const expectedBalanceTo = balances[transfer.token][transfer.to];
-      assert.equal(balanceFrom, expectedBalanceFrom, "Token balance does not match expected value");
-      assert.equal(balanceTo, expectedBalanceTo, "Token balance does not match expected value");
+      let balanceFrom: BigNumber;
+      let balanceTo: BigNumber;
+      if (transfer.tokenType === TokenType.ERC20) {
+        const dummyToken = await DummyToken.at(transfer.token);
+        balanceFrom = await dummyToken.balanceOf(transfer.from);
+        balanceTo = await dummyToken.balanceOf(transfer.to);
+      } else if (transfer.tokenType === TokenType.ERC1400) {
+        const dummyToken = await DummyERC1400Token.at(transfer.token);
+        balanceFrom = await dummyToken.balanceOfTranche(transfer.tranche, transfer.from);
+        balanceTo = await dummyToken.balanceOfTranche(transfer.tranche, transfer.to);
+      }
+      const expectedBalanceFrom = balances.getBalance(transfer.from, transfer.token, transfer.tranche);
+      const expectedBalanceTo = balances.getBalance(transfer.to, transfer.token, transfer.tranche);
+      assert(balanceFrom.eq(expectedBalanceFrom), "Token balance does not match expected value");
+      assert(balanceTo.eq(expectedBalanceTo), "Token balance does not match expected value");
     }
   };
 
@@ -273,6 +292,7 @@ contract("TradeDelegate", (accounts: string[]) => {
     erc20Token3 = RDNToken.address;
     erc20Token4 = GTOToken.address;
     erc1400Token1 = STAToken.address;
+    erc1400Token2 = STBToken.address;
   });
 
   beforeEach(async () => {
@@ -325,7 +345,7 @@ contract("TradeDelegate", (accounts: string[]) => {
       await tradeDelegate.suspend({from: owner});
       // Try to do a transfer
       await authorizeAddressChecked(dummyExchange1.address, owner);
-      await setUserBalance(erc20Token1, user1, 10e18);
+      await setERC20UserBalance(erc20Token1, user1, 10e18);
       const transfers: TokenTransfer[] = [];
       addERC20TokenTransfer(transfers, erc20Token1, user1, user2, 1e18);
       await expectThrow(batchTransferChecked(transfers), "INVALID_STATE");
@@ -344,7 +364,7 @@ contract("TradeDelegate", (accounts: string[]) => {
       // Try to resume again
       await expectThrow(tradeDelegate.resume({from: owner}), "NOT_OWNER");
       // Try to do a transfer
-      await setUserBalance(erc20Token1, user1, 10e18);
+      await setERC20UserBalance(erc20Token1, user1, 10e18);
       const transfers: TokenTransfer[] = [];
       addERC20TokenTransfer(transfers, erc20Token1, user1, user2, 1e18);
       await expectThrow(batchTransferChecked(transfers), "INVALID_STATE");
@@ -358,10 +378,13 @@ contract("TradeDelegate", (accounts: string[]) => {
 
     it("should be able to batch transfer tokens", async () => {
       // Make sure everyone has enough funds
-      await setUserBalance(erc20Token1, user1, 10e18);
-      await setUserBalance(erc20Token2, user1, 10e18);
-      await setUserBalance(erc20Token2, user2, 10e18);
-      await setUserBalance(erc20Token3, user3, 10e18);
+      await setERC20UserBalance(erc20Token1, user1, 10e18);
+      await setERC20UserBalance(erc20Token2, user1, 10e18);
+      await setERC20UserBalance(erc20Token2, user2, 10e18);
+      await setERC20UserBalance(erc20Token3, user3, 10e18);
+      await setERC1400UserBalance(erc1400Token1, tranche1, user1, 10e18);
+      await setERC1400UserBalance(erc1400Token1, tranche2, user1, 10e18);
+      await setERC1400UserBalance(erc1400Token2, tranche1, user2, 10e18);
       {
         const transfers: TokenTransfer[] = [];
         addERC20TokenTransfer(transfers, erc20Token1, user1, user2, 1.5e18);
@@ -369,17 +392,20 @@ contract("TradeDelegate", (accounts: string[]) => {
         addERC20TokenTransfer(transfers, erc20Token2, user2, user3, 2.2e18);
         addERC20TokenTransfer(transfers, erc20Token2, user2, user1, 0.3e18);
         addERC20TokenTransfer(transfers, erc20Token2, user1, user3, 2.5e18);
+        addERC1400TokenTransfer(transfers, erc1400Token1, user1, user2, 1.5e18, tranche1, "0x");
         await batchTransferChecked(transfers);
       }
       {
         const transfers: TokenTransfer[] = [];
         addERC20TokenTransfer(transfers, erc20Token1, user1, user3, 1.5e18);
         addERC20TokenTransfer(transfers, erc20Token3, user3, user2, 2.5e18);
+        addERC1400TokenTransfer(transfers, erc1400Token1, user1, user3, 2.5e18, tranche2, "0x");
         addERC20TokenTransfer(transfers, erc20Token3, user3, user1, 1.5e18);
         await batchTransferChecked(transfers);
       }
       {
         const transfers: TokenTransfer[] = [];
+        addERC1400TokenTransfer(transfers, erc1400Token2, user2, user1, 3.5e18, tranche1, "0x");
         // No tokens to be transfered
         addERC20TokenTransfer(transfers, erc20Token1, user1, user3, 0);
         // From == To
@@ -389,7 +415,7 @@ contract("TradeDelegate", (accounts: string[]) => {
     });
 
     it("should not be able to batch transfer tokens with malformed data", async () => {
-      await setUserBalance(erc20Token1, user1, 10e18);
+      await setERC20UserBalance(erc20Token1, user1, 10e18);
       const transfers: TokenTransfer[] = [];
       addERC20TokenTransfer(transfers, erc20Token1, user1, user2, 1e18);
       addERC20TokenTransfer(transfers, erc20Token1, user1, user3, 2e18);
@@ -397,7 +423,7 @@ contract("TradeDelegate", (accounts: string[]) => {
       await expectThrow(dummyExchange1.batchTransfer(batch), "INVALID_SIZE");
     });
 
-    it("should not be able to batch transfer tokens with non-ERC20 token address", async () => {
+    it("should not be able to batch transfer tokens with invalid token address", async () => {
       const transfers: TokenTransfer[] = [];
       addERC20TokenTransfer(transfers, erc20Token1, user1, user2, 1e18);
       const batch = toTransferBatch(transfers);
@@ -691,7 +717,7 @@ contract("TradeDelegate", (accounts: string[]) => {
     describe("Bad ERC20 tokens", () => {
       it("batchTransfer should succeed when a token transfer does not throw and returns nothing", async () => {
         await TestToken.setTestCase(await TestToken.TEST_NO_RETURN_VALUE());
-        await setUserBalance(testToken, user1, 10e18);
+        await setERC20UserBalance(testToken, user1, 10e18);
         const transfers: TokenTransfer[] = [];
         addERC20TokenTransfer(transfers, testToken, user1, user2, 1e18);
         await batchTransferChecked(transfers);
@@ -699,7 +725,7 @@ contract("TradeDelegate", (accounts: string[]) => {
 
       it("batchTransfer should fail when a token transfer 'require' fails", async () => {
         await TestToken.setTestCase(await TestToken.TEST_REQUIRE_FAIL());
-        await setUserBalance(testToken, user1, 10e18);
+        await setERC20UserBalance(testToken, user1, 10e18);
         const transfers: TokenTransfer[] = [];
         addERC20TokenTransfer(transfers, testToken, user1, user2, 1e18);
         const batch = toTransferBatch(transfers);
@@ -708,7 +734,7 @@ contract("TradeDelegate", (accounts: string[]) => {
 
       it("batchTransfer should fail when a token transfer returns false", async () => {
         await TestToken.setTestCase(await TestToken.TEST_RETURN_FALSE());
-        await setUserBalance(testToken, user1, 10e18);
+        await setERC20UserBalance(testToken, user1, 10e18);
         const transfers: TokenTransfer[] = [];
         addERC20TokenTransfer(transfers, testToken, user1, user2, 1e18);
         const batch = toTransferBatch(transfers);
@@ -717,7 +743,7 @@ contract("TradeDelegate", (accounts: string[]) => {
 
       it("batchTransfer should fail when a token transfer returns more than 32 bytes", async () => {
         await TestToken.setTestCase(await TestToken.TEST_INVALID_RETURN_SIZE());
-        await setUserBalance(testToken, user1, 10e18);
+        await setERC20UserBalance(testToken, user1, 10e18);
         const transfers: TokenTransfer[] = [];
         addERC20TokenTransfer(transfers, testToken, user1, user2, 1e18);
         const batch = toTransferBatch(transfers);
@@ -766,7 +792,7 @@ contract("TradeDelegate", (accounts: string[]) => {
 
     it("should not be able to transfer tokens", async () => {
       // Make sure everyone has enough funds
-      await setUserBalance(erc20Token1, user1, 10e18);
+      await setERC20UserBalance(erc20Token1, user1, 10e18);
       const transfers: TokenTransfer[] = [];
       addERC20TokenTransfer(transfers, erc20Token1, user1, user2, 1e18);
       await expectThrow(batchTransferChecked(transfers), "UNAUTHORIZED");

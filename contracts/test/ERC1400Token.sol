@@ -177,18 +177,16 @@ contract PartialFungibleToken is ERC1410 {
         }
     }
 
-    function _sendTranche(address _from, address _to, uint256 _amount, bytes32 _tranche, bytes _data, bytes _operatorData) internal returns (byte, bytes32) {
-
+    function _sendTranche(address _from, address _to, uint256 _amount, bytes32 _tranche, bytes/* _data*/, bytes /*_operatorData*/)
+        internal
+        returns (byte, bytes32)
+    {
         _ensureTrench(_from, _tranche);
         _ensureTrench(_to, _tranche);
 
         if (tranches[_from][trancheToIndex[_from][_tranche] - 1].amount < _amount) {
             return (0x00, bytes32(""));
         }
-        // Checking the overflow condition in subtraction TODO: Create a library for that similar to SafeMath
-        /*if (tranches[_from][trancheToIndex[_from][_tranche] - 1].amount > tranches[_from][trancheToIndex[_from][_tranche] - 1].amount - _amount) {
-            return (0x10, bytes32(""));
-        }*/
 
         // Checking the overflow condition in addition TODO: Create a library for that similar to SafeMath
         if (tranches[_to][trancheToIndex[_to][_tranche] - 1].amount > tranches[_to][trancheToIndex[_to][_tranche] - 1].amount + _amount) {
@@ -214,7 +212,10 @@ contract PartialFungibleToken is ERC1410 {
     /// @param _operatorData Additional data attached to the transfer of tokens by the operator
     /// @return A reason code related to the success of the send operation
     /// @return The tranche to which the transferred tokens were allocated for the _to address
-    function operatorSendTranche(bytes32 _tranche, address _from, address _to, uint256 _amount, bytes _data, bytes _operatorData) external returns (byte, bytes32) {
+    function operatorSendTranche(bytes32 _tranche, address _from, address _to, uint256 _amount, bytes _data, bytes _operatorData)
+        external
+        returns (byte, bytes32)
+    {
         // Check operator is approved
         if ((!trancheApprovals[_from][_tranche][msg.sender]) && (!approvals[_from][msg.sender])) {
             return (0x20, bytes32(""));
@@ -257,7 +258,7 @@ contract PartialFungibleToken is ERC1410 {
 
     /// @notice Defines a list of operators which can operate over all addresses for the specified tranche
     /// @return The list of default operators for `_tranche`
-    function defaultOperatorsTranche(bytes32 _tranche) public view returns (address[]) {
+    function defaultOperatorsTranche(bytes32/* _tranche*/) public view returns (address[]) {
         // No default operators
         return new address[](0);
     }
@@ -267,7 +268,7 @@ contract PartialFungibleToken is ERC1410 {
     /// @param _operator An address which is being authorised
     function authorizeOperator(address _operator) public {
         approvals[msg.sender][_operator] = true;
-        //emit AuthorizedOperator(_operator, msg.sender);
+        emit AuthorizedOperator(_operator, msg.sender);
     }
 
     /// @notice Authorises an operator for a given tranche of `msg.sender`
@@ -275,14 +276,14 @@ contract PartialFungibleToken is ERC1410 {
     /// @param _operator An address which is being authorised
     function authorizeOperatorTranche(bytes32 _tranche, address _operator) public {
         trancheApprovals[msg.sender][_tranche][_operator] = true;
-        //emit AuthorizedOperatorTranche(_tranche, _operator, msg.sender);
+        emit AuthorizedOperatorTranche(_tranche, _operator, msg.sender);
     }
 
     /// @notice Revokes authorisation of an operator previously given for all tranches of `msg.sender`
     /// @param _operator An address which is being de-authorised
     function revokeOperator(address _operator) public {
         approvals[msg.sender][_operator] = false;
-        //emit RevokedOperator(_operator, msg.sender);
+        emit RevokedOperator(_operator, msg.sender);
     }
 
     /// @notice Revokes authorisation of an operator previously given for a specified tranche of `msg.sender`
@@ -290,7 +291,7 @@ contract PartialFungibleToken is ERC1410 {
     /// @param _operator An address which is being de-authorised
     function revokeOperatorTranche(bytes32 _tranche, address _operator) public {
         trancheApprovals[msg.sender][_tranche][_operator] = false;
-        //emit RevokedOperatorTranche(_tranche, _operator, msg.sender);
+        emit RevokedOperatorTranche(_tranche, _operator, msg.sender);
     }
 
     /// @notice Determines whether `_operator` is an operator for all tranches of `_owner`
@@ -321,7 +322,8 @@ contract PartialFungibleToken is ERC1410 {
 
         _ensureTrench(_owner, _tranche);
 
-        if (tranches[_owner][trancheToIndex[_owner][_tranche] - 1].amount + _amount < tranches[_owner][trancheToIndex[_owner][_tranche] - 1].amount) {
+        if (tranches[_owner][trancheToIndex[_owner][_tranche] - 1].amount + _amount <
+            tranches[_owner][trancheToIndex[_owner][_tranche] - 1].amount) {
             return (0x10);
         }
         if (balances[_owner] + _amount < balances[_owner]) {
@@ -358,7 +360,8 @@ contract PartialFungibleToken is ERC1410 {
 
         _ensureTrench(_owner, _tranche);
 
-        if (tranches[_owner][trancheToIndex[_owner][_tranche] - 1].amount - _amount > tranches[_owner][trancheToIndex[_owner][_tranche] - 1].amount) {
+        if (tranches[_owner][trancheToIndex[_owner][_tranche] - 1].amount - _amount >
+            tranches[_owner][trancheToIndex[_owner][_tranche] - 1].amount) {
             return (0x10);
         }
         if (balances[_owner] - _amount > balances[_owner]) {
@@ -389,7 +392,7 @@ contract ERC1400Token is PartialFungibleToken, ERC1400, Errors {
 
     // Document Management
     function getDocument(
-        bytes32 _name
+        bytes32/* _name*/
         )
         external
         view
@@ -400,9 +403,9 @@ contract ERC1400Token is PartialFungibleToken, ERC1400, Errors {
     }
 
     function setDocument(
-        bytes32 _name,
-        string _uri,
-        bytes32 _documentHash
+        bytes32/* _name*/,
+        string/* _uri*/,
+        bytes32/* _documentHash*/
         )
         external
     {
@@ -428,10 +431,10 @@ contract ERC1400Token is PartialFungibleToken, ERC1400, Errors {
     }
 
     function issueByTranche(
-        bytes32 _tranche,
-        address _tokenHolder,
-        uint256 _amount,
-        bytes _data
+        bytes32/* _tranche*/,
+        address/* _tokenHolder*/,
+        uint256/* _amount*/,
+        bytes/* _data*/
         )
         external
     {
@@ -440,9 +443,9 @@ contract ERC1400Token is PartialFungibleToken, ERC1400, Errors {
 
     // Token Redemption
     function redeemByTranche(
-        bytes32 _tranche,
-        uint256 _amount,
-        bytes _data
+        bytes32/* _tranche*/,
+        uint256/* _amount*/,
+        bytes/* _data*/
         )
         external
     {
@@ -450,10 +453,10 @@ contract ERC1400Token is PartialFungibleToken, ERC1400, Errors {
     }
 
     function operatorRedeemByTranche(
-        bytes32 _tranche,
-        address _tokenHolder,
-        uint256 _amount,
-        bytes _operatorData
+        bytes32/* _tranche*/,
+        address/* _tokenHolder*/,
+        uint256/* _amount*/,
+        bytes/* _operatorData*/
         )
         external
     {
@@ -463,18 +466,26 @@ contract ERC1400Token is PartialFungibleToken, ERC1400, Errors {
     // Transfer Validity
     function canSend(
         address _from,
-        address _to,
+        address/* _to*/,
         bytes32 _tranche,
         uint256 _amount,
-        bytes _data
+        bytes/* _data*/
         )
         external
         view
         returns (byte code, bytes32 description, bytes32 destTranche)
     {
-        code = 0xA0;
-        description = 0x0;
-        destTranche = _tranche;
+        // Always allow the send when the balance is valid
+        uint balance = balanceOfTranche(_tranche, _from);
+        if (balance < _amount) {
+            code = 0x00;
+            description = 0x0;
+            destTranche = 0x0;
+        } else {
+            code = 0xA0;
+            description = 0x0;
+            destTranche = _tranche;
+        }
     }
 
     constructor(
