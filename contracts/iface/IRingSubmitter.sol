@@ -44,6 +44,22 @@ contract IRingSubmitter {
         bytes32 _ringHash
     );
 
+    event LogInfoNumber(
+        uint num
+    );
+    event LogInfoBytes32(
+        bytes32 bs
+    );
+    event LogInfoAddress(
+        address addr
+    );
+    event LogInfoString(
+        string log
+    );
+    event LogInfoBytes(
+        bytes bs
+    );
+
     /// @dev   Submit order-rings for validation and settlement.
     /// @param data Packed data of all rings.
     function submitRings(

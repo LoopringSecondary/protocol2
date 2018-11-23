@@ -7,10 +7,11 @@ var FeeHolder = artifacts.require("./impl/FeeHolder");
 var OrderBook = artifacts.require("./impl/OrderBook");
 var BurnRateTable = artifacts.require("./impl/BurnRateTable");
 var BurnManager = artifacts.require("./impl/BurnManager");
-var LRCToken = artifacts.require("./test/tokens/LRC.sol");
-var WETHToken = artifacts.require("./test/tokens/WETH.sol");
 
 module.exports = function(deployer, network, accounts) {
+
+  const lrc = "0xcd36128815ebe0b44d0374649bad2721b8751bef";
+  const weth = "0xf079E0612E869197c5F4c7D0a95DF570B163232b";
 
   if (network === "live") {
     // ignore.
@@ -22,17 +23,17 @@ module.exports = function(deployer, network, accounts) {
         OrderRegistry.deployed(),
         FeeHolder.deployed(),
         OrderBook.deployed(),
-        LRCToken.deployed(),
-        WETHToken.deployed(),
+        lrc,
+        weth,
       ]);
     }).then(() => {
-      return deployer.deploy(BurnRateTable, LRCToken.address, WETHToken.address);
+      return deployer.deploy(BurnRateTable, lrc, weth);
     }).then(() => {
       return Promise.all([
         deployer.deploy(
           RingSubmitter,
-          LRCToken.address,
-          WETHToken.address,
+          lrc,
+          weth,
           TradeDelegate.address,
           BrokerRegistry.address,
           OrderRegistry.address,
@@ -41,7 +42,7 @@ module.exports = function(deployer, network, accounts) {
           BurnRateTable.address,
         ),
         deployer.deploy(OrderCanceller, TradeDelegate.address),
-        deployer.deploy(BurnManager, FeeHolder.address, LRCToken.address),
+        deployer.deploy(BurnManager, FeeHolder.address, lrc),
       ]);
     }).then(() => {
       // do nothing

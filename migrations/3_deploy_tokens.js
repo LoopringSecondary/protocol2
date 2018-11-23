@@ -9,12 +9,12 @@ module.exports = function(deployer, network, accounts) {
   if (network === "live") {
     // ignore
   } else {
-    deployer.deploy(LRCToken);
-    deployer.deploy(GTOToken);
-    deployer.deploy(RDNToken);
-    deployer.deploy(REPToken);
-    deployer.deploy(WETHToken);
-    deployer.deploy(TESTToken);
+    // deployer.deploy(LRCToken);
+    // deployer.deploy(GTOToken);
+    // deployer.deploy(RDNToken);
+    // deployer.deploy(REPToken);
+    // deployer.deploy(WETHToken);
+    // deployer.deploy(TESTToken);
   }
 
 };
