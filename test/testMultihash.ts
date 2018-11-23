@@ -8,16 +8,6 @@ contract("Multihash", (accounts: string[]) => {
 
   const emptyAddr = "0x0000000000000000000000000000000000000000";
 
-  const signer1 = accounts[1];
-  const signer2 = accounts[2];
-  const hash1 = "0x" + "A1".repeat(32);
-  const hash2 = "0x" + "B2".repeat(32);
-
-  const privateKey1 = ethUtil.sha3("key1");
-  const publicKey1 = ethUtil.bufferToHex(ethUtil.privateToAddress(privateKey1));
-  const privateKey2 = ethUtil.sha3("key2");
-  const publicKey2 = ethUtil.bufferToHex(ethUtil.privateToAddress(privateKey2));
-
   const util = new MultiHashUtil();
 
   let multihash: any;
@@ -26,114 +16,40 @@ contract("Multihash", (accounts: string[]) => {
     multihash = await MultihashUtilProxy.new();
   });
 
-  describe("General", () => {
-
-    it("should not be able to verify unknown signature types", async () => {
-      const sig = new Bitstream();
-      sig.addNumber(111, 1);
-      sig.addNumber(48, 1);
-      sig.addNumber(123, 24);
-      sig.addNumber(456, 24);
-      // Should not throw
-      const success = await multihash.verifySignature(signer1, hash1, sig.getData());
-      assert(!success, "Signature should not be valid");
-    });
-
-    it("should not be able to verify invalid multihash data", async () => {
-      const sig = new Bitstream();
-      sig.addNumber(1, 1);
-      await expectThrow(multihash.verifySignature(signer1, hash1, sig.getData()), "invalid multihash format");
-    });
-
-    it("should not be able to verify multihash data with incorrect length", async () => {
-      const sig = new Bitstream();
-      sig.addNumber(111, 1);
-      sig.addNumber(24 + 2, 1);
-      sig.addNumber(123, 24);
-      await expectThrow(multihash.verifySignature(signer1, hash1, sig.getData()), "bad multihash size");
-    });
-
-  });
-
   describe("Standard Ethereum signing", () => {
 
     it("should be able to verify signed data", async () => {
-      const multiHashData = await util.signAsync(SignAlgorithm.Ethereum, new Buffer(hash1.slice(2), "hex"), signer1);
-      const success = await multihash.verifySignature(signer1, hash1, multiHashData);
+      const signer = accounts[1];
+      const hash = "0x87af0e69eadbad669423455af52cfad68ab75ec9e86288cf31bac18e9b881d7a";
+      const multiHashData = await util.signAsync(SignAlgorithm.Ethereum, new Buffer(hash.slice(2), "hex"), signer);
+      console.log("hash", hash);
+      console.log("signer", signer);
+      console.log("multihash", multiHashData);
+      const success = await multihash.verifySignature(signer, hash, multiHashData);
       assert(success, "Signature should be valid");
-    });
-
-    it("should not be able to verify wrongly signed data", async () => {
-      {
-        // Different hash
-        const multiHashData = await util.signAsync(SignAlgorithm.Ethereum, new Buffer(hash2.slice(2), "hex"), signer1);
-        const success = await multihash.verifySignature(signer1, hash1, multiHashData);
-        assert(!success, "Signature should not be valid");
-      }
-      {
-        // Different signer
-        const multiHashData = await util.signAsync(SignAlgorithm.Ethereum, new Buffer(hash1.slice(2), "hex"), signer1);
-        const success = await multihash.verifySignature(signer2, hash1, multiHashData);
-        assert(!success, "Signature should not be valid");
-      }
-    });
-
-    it("should not be able to verify signed data for invalid addresses", async () => {
-      const multiHashData = await util.signAsync(SignAlgorithm.Ethereum, new Buffer(hash1.slice(2), "hex"), signer1);
-      await expectThrow(multihash.verifySignature(emptyAddr, hash1, multiHashData), "invalid signer address");
-    });
-
-    it("should not be able to verify signed data with incorrect signature data length", async () => {
-      let multiHashData = await util.signAsync(SignAlgorithm.Ethereum, new Buffer(hash1.slice(2), "hex"), signer1);
-      const prefix = new Bitstream();
-      prefix.addNumber(SignAlgorithm.Ethereum, 1);
-      prefix.addNumber(65 + 1, 1);
-      multiHashData = prefix.getData() + multiHashData.slice(2 + 4) + "00";
-      await expectThrow(multihash.verifySignature(signer1, hash1, multiHashData), "bad Ethereum multihash size");
     });
 
   });
 
-  describe("EIP712", () => {
+  describe("EIP712 signing", () => {
 
     it("should be able to verify signed data", async () => {
-      const hash = new Buffer(hash1.slice(2), "hex");
-      const multiHashData = await util.signAsync(SignAlgorithm.EIP712, hash, publicKey1, privateKey1);
-      const success = await multihash.verifySignature(publicKey1, hash1, multiHashData);
+      const orderhash = "0xa5040e8f5ea24f4b6c053caaa19c44608e5c33e5f71ad6ee48f97241d597ed3e";
+      const privateKey = "0x5b791c6c9f4b7aa95ccb58f0f939397d1dcd047a5c0231e77ca353ebfea306f3";
+      const signer = "0x1b978a1d302335a6f2ebe4b8823b5e17c3c84135";
+      const multiHashData = await util.signAsync(
+        SignAlgorithm.EIP712,
+        new Buffer(orderhash.slice(2), "hex"),
+        signer,
+        privateKey.slice(2));
+
+      console.log("orderhash", orderhash);
+      console.log("signer", signer);
+      console.log("privateKey", privateKey);
+      console.log("multihash", multiHashData);
+
+      const success = await multihash.verifySignature(signer, orderhash, multiHashData);
       assert(success, "Signature should be valid");
-    });
-
-    it("should not be able to verify wrongly signed data", async () => {
-      {
-        // Different hash
-        const hash = new Buffer(hash2.slice(2), "hex");
-        const multiHashData = await util.signAsync(SignAlgorithm.EIP712, hash, publicKey1, privateKey1);
-        const success = await multihash.verifySignature(publicKey1, hash1, multiHashData);
-        assert(!success, "Signature should not be valid");
-      }
-      {
-        // Different signer
-        const hash = new Buffer(hash1.slice(2), "hex");
-        const multiHashData = await util.signAsync(SignAlgorithm.EIP712, hash, publicKey1, privateKey1);
-        const success = await multihash.verifySignature(publicKey2, hash1, multiHashData);
-        assert(!success, "Signature should not be valid");
-      }
-    });
-
-    it("should not be able to verify signed data for invalid addresses", async () => {
-      const hash = new Buffer(hash1.slice(2), "hex");
-      const multiHashData = await util.signAsync(SignAlgorithm.EIP712, hash, publicKey1, privateKey1);
-      await expectThrow(multihash.verifySignature(emptyAddr, hash1, multiHashData), "invalid signer address");
-    });
-
-    it("should not be able to verify signed data with incorrect signature data length", async () => {
-      const hash = new Buffer(hash1.slice(2), "hex");
-      let multiHashData = await util.signAsync(SignAlgorithm.EIP712, hash, publicKey1, privateKey1);
-      const prefix = new Bitstream();
-      prefix.addNumber(SignAlgorithm.EIP712, 1);
-      prefix.addNumber(65 + 1, 1);
-      multiHashData = prefix.getData() + multiHashData.slice(2 + 4) + "00";
-      await expectThrow(multihash.verifySignature(publicKey1, hash1, multiHashData), "bad EIP712 multihash size");
     });
 
   });
