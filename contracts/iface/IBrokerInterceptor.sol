@@ -24,12 +24,15 @@ contract IBrokerInterceptor {
     /// @dev   Returns the maximum amount of tokens the broker can sell for the owner
     /// @param owner The owner for which the broker can spend funds
     /// @param broker The broker of the owner
+    /// @param tokenType The type of the token (see Data.TokenType)
+    /// @param token The token to spend
     /// @param token The token to spend
     /// @param tranche The tranche of the token to spend (0x0 if not applicable)
     /// @return The allowance
     function getAllowance(
         address owner,
         address broker,
+        uint tokenType,
         address token,
         bytes32 tranche
         )
@@ -44,6 +47,7 @@ contract IBrokerInterceptor {
     ///      for the current address of RingSubmitter deployment.
     /// @param owner The owner for which the broker has spent funds
     /// @param broker The broker of the owner
+    /// @param tokenType The type of the token (see Data.TokenType)
     /// @param token The token spent
     /// @param amount The amount spent
     /// @param tranche The tranche of the token spent (0x0 if not applicable)
@@ -51,6 +55,7 @@ contract IBrokerInterceptor {
     function onTokenSpent(
         address owner,
         address broker,
+        uint tokenType,
         address token,
         bytes32 tranche,
         uint    amount

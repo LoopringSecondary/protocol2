@@ -313,7 +313,9 @@ contract RingSubmitter is IRingSubmitter, NoDefaultFunc {
                     ptr,
                     orders[i].broker,
                     orders[i].owner,
-                    orders[i].tokenS
+                    orders[i].tokenS,
+                    orders[i].trancheS,
+                    orders[i].tokenTypeS
                 );
                 uint brokerSpendableFee;
                 (ptr, brokerSpendableFee) = addBrokerSpendable(
@@ -321,7 +323,9 @@ contract RingSubmitter is IRingSubmitter, NoDefaultFunc {
                     ptr,
                     orders[i].broker,
                     orders[i].owner,
-                    orders[i].feeToken
+                    orders[i].feeToken,
+                    0x0,
+                    orders[i].tokenTypeFee
                 );
                 // Store the spendables in the order
                 assembly {
@@ -341,22 +345,27 @@ contract RingSubmitter is IRingSubmitter, NoDefaultFunc {
         uint ptr,
         address broker,
         address owner,
-        address token
+        address token,
+        bytes32 tranche,
+        Data.TokenType tokenType
         )
         internal
         pure
         returns (uint newPtr, uint spendable)
     {
         assembly {
-            // Try to find the spendable for the same (broker, owner, token) set
+            // Try to find the spendable for the same (broker, owner, token, tranche, tokenType) set
             let addNew := 1
-            for { let p := data } and(lt(p, ptr), eq(addNew, 1)) { p := add(p, 192) } {
-                let dataBroker := mload(add(p,  0))
-                let dataOwner := mload(add(p, 32))
-                let dataToken := mload(add(p, 64))
-                // if(broker == dataBroker && owner == dataOwner && token == dataToken)
-                if and(and(eq(broker, dataBroker), eq(owner, dataOwner)), eq(token, dataToken)) {
-                    spendable := add(p, 96)
+            for { let p := data } and(lt(p, ptr), eq(addNew, 1)) { p := add(p, 256) } {
+                // if(broker == dataBroker && owner == dataOwner && token == dataToken &&
+                //    tranche == dataTranche && tokenType == dataTokenType)
+                if and(and(and(and(
+                    eq(broker, mload(add(p, 0))),
+                    eq(owner, mload(add(p, 32)))),
+                    eq(token, mload(add(p, 64)))),
+                    eq(tranche, mload(add(p, 96)))),
+                    eq(tokenType, mload(add(p, 128)))) {
+                    spendable := add(p, 160)
                     addNew := 0
                 }
             }
@@ -364,14 +373,16 @@ contract RingSubmitter is IRingSubmitter, NoDefaultFunc {
                 mstore(add(ptr,  0), broker)
                 mstore(add(ptr, 32), owner)
                 mstore(add(ptr, 64), token)
+                mstore(add(ptr, 96), tranche)
+                mstore(add(ptr, 128), tokenType)
 
                 // Initialize spendable
-                mstore(add(ptr, 96), 0)
-                mstore(add(ptr, 128), 0)
                 mstore(add(ptr, 160), 0)
+                mstore(add(ptr, 192), 0)
+                mstore(add(ptr, 224), 0)
 
-                spendable := add(ptr, 96)
-                ptr := add(ptr, 192)
+                spendable := add(ptr, 160)
+                ptr := add(ptr, 256)
             }
             newPtr := ptr
         }
@@ -455,7 +466,7 @@ contract RingSubmitter is IRingSubmitter, NoDefaultFunc {
         uint totalMaxSizeTransfers = 0;
         for (uint i = 0; i < rings.length; i++) {
             // Up to 4 transfers per order
-            // (6 x 32 bytes for every transfer)
+            // (7 x 32 bytes for every transfer)
             uint maxSize = 4 * rings[i].size * 7;
             totalMaxSizeTransfers += maxSize;
         }

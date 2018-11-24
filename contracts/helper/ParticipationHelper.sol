@@ -43,6 +43,7 @@ library ParticipationHelper {
             // No need to check the fee balance of the owner if feeToken == tokenB,
             // fillAmountB will be used to pay the fee.
             if (!(p.order.feeToken == p.order.tokenB &&
+                  p.order.tokenTypeFee == p.order.tokenTypeB &&
                   p.order.owner == p.order.tokenRecipient &&
                   p.order.feeAmount <= p.order.amountB)) {
                 // Check how much fee needs to be paid. We limit fillAmountS to how much
@@ -50,7 +51,9 @@ library ParticipationHelper {
                 uint feeAmount = p.order.feeAmount.mul(p.fillAmountS) / p.order.amountS;
                 if (feeAmount > 0) {
                     uint spendableFee = p.order.getSpendableFee(ctx);
-                    if (p.order.feeToken == p.order.tokenS && p.fillAmountS + feeAmount > spendableS) {
+                    if (p.order.feeToken == p.order.tokenS &&
+                        p.order.tokenTypeFee == p.order.tokenTypeS &&
+                        p.fillAmountS + feeAmount > spendableS) {
                         assert(spendableFee == spendableS);
                         // Equally divide the available tokens between fillAmountS and feeAmount
                         uint totalAmount = p.order.amountS.add(p.order.feeAmount);
@@ -90,6 +93,7 @@ library ParticipationHelper {
             // If feeToken == tokenB AND owner == tokenRecipient, try to pay using fillAmountB
 
             if (p.order.feeToken == p.order.tokenB &&
+                p.order.tokenTypeFee == p.order.tokenTypeB &&
                 p.order.owner == p.order.tokenRecipient &&
                 p.fillAmountB >= p.feeAmount) {
                 p.feeAmountB = p.feeAmount;

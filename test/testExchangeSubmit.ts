@@ -756,7 +756,7 @@ contract("Exchange_Submit", (accounts: string[]) => {
             tokenB: "WETH",
             amountS: 100e18,
             amountB: 10e18,
-            trancheS: "0x" + "00".repeat(32),
+            trancheS: "0x" + "ab".repeat(32),
             tokenTypeS: pjs.TokenType.ERC1400,
           },
           {
@@ -764,7 +764,7 @@ contract("Exchange_Submit", (accounts: string[]) => {
             tokenB: "STA",
             amountS: 10e18,
             amountB: 100e18,
-            trancheB: "0x" + "00".repeat(32),
+            trancheB: "0x" + "ab".repeat(32),
             tokenTypeB: pjs.TokenType.ERC1400,
           },
         ],
@@ -792,9 +792,10 @@ contract("Exchange_Submit", (accounts: string[]) => {
       };
       await exchangeTestUtil.submitRingsAndSimulate(ringsInfo);
 
-      // TradeDelegate approved as operator
-      await STAToken.authorizeOperator(exchangeTestUtil.context.tradeDelegate.address,
-                                       {from: ringsInfo.orders[0].owner});
+      // TradeDelegate approved as operator specifically for trancheS
+      await STAToken.authorizeOperatorTranche(ringsInfo.orders[0].trancheS,
+                                              exchangeTestUtil.context.tradeDelegate.address,
+                                              {from: ringsInfo.orders[0].owner});
       ringsInfo.expected = {
         rings: [
           {
@@ -810,6 +811,10 @@ contract("Exchange_Submit", (accounts: string[]) => {
         ],
       };
       await exchangeTestUtil.submitRingsAndSimulate(ringsInfo);
+
+      // Restore the authorization of the operator for all tokens
+      await STAToken.authorizeOperator(exchangeTestUtil.context.tradeDelegate.address,
+                                       {from: ringsInfo.orders[0].owner});
     });
 
     it("should not settle rings when token types don't match", async () => {

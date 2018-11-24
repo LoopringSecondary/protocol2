@@ -46,6 +46,7 @@ contract DummyBrokerInterceptor is IBrokerInterceptor {
     function getAllowance(
         address owner,
         address broker,
+        uint/* tokenType*/,
         address token,
         bytes32/* tranche*/
         )
@@ -62,6 +63,7 @@ contract DummyBrokerInterceptor is IBrokerInterceptor {
     function onTokenSpent(
         address owner,
         address broker,
+        uint/* tokenType*/,
         address token,
         bytes32/* tranche*/,
         uint    amount

@@ -2519,7 +2519,7 @@ export const ringsInfoList: RingsInfo[] = [
   },
 
   {
-    description: "single 2-size ring, selling ERC1400 token in different tranches",
+    description: "multiple 2-size rings, selling ERC1400 token in different tranches",
     rings: [[0, 1], [2, 3]],
     orders: [
       {
@@ -2552,9 +2552,10 @@ export const ringsInfoList: RingsInfo[] = [
         trancheS: "0x" + "cd".repeat(32),
         tokenTypeS: TokenType.ERC1400,
         tokenB: "WETH",
-        amountS: 3e18,
+        amountS: 4e18,
         amountB: 1e18,
         balanceFee: 2e18,
+        balanceS: 2e18,
       },
       {
         index: 3,
@@ -2564,7 +2565,7 @@ export const ringsInfoList: RingsInfo[] = [
         trancheB: "0x" + "cd".repeat(32),
         tokenTypeB: TokenType.ERC1400,
         amountS: 1e18,
-        amountB: 3e18,
+        amountB: 4e18,
         balanceS: 2e18,
         balanceFee: 2e18,
       },
@@ -2586,11 +2587,11 @@ export const ringsInfoList: RingsInfo[] = [
         {
           orders: [
             {
-              filledFraction: 1.0,
+              filledFraction: 0.5,
               margin: 0,
             },
             {
-              filledFraction: 1.0,
+              filledFraction: 0.5,
               margin: 0,
             },
           ],
@@ -2600,7 +2601,7 @@ export const ringsInfoList: RingsInfo[] = [
   },
 
   {
-    description: "single 2-size ring, selling ERC1400 token with different transfer data",
+    description: "multiple 2-size ring, selling ERC1400 token with different transfer data",
     rings: [[0, 1], [2, 3]],
     orders: [
       {

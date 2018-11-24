@@ -27,6 +27,7 @@ library BrokerInterceptorProxy {
         address brokerInterceptor,
         address owner,
         address broker,
+        uint tokenType,
         address token,
         bytes32 tranche
         )
@@ -37,6 +38,7 @@ library BrokerInterceptorProxy {
             0xe7092b41, // bytes4(keccak256("getAllowance(address,address,address)"))
             owner,
             broker,
+            tokenType,
             token,
             tranche
         );
@@ -63,6 +65,7 @@ library BrokerInterceptorProxy {
         address brokerInterceptor,
         address owner,
         address broker,
+        uint tokenType,
         address token,
         bytes32 tranche,
         uint    amount
@@ -74,6 +77,7 @@ library BrokerInterceptorProxy {
             0x9e80e44d, // bytes4(keccak256("onTokenSpent(address,address,address,uint256)"))
             owner,
             broker,
+            tokenType,
             token,
             tranche,
             amount

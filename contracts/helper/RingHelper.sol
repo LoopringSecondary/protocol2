@@ -334,7 +334,7 @@ library RingHelper {
         uint amountFeeToFeeHolder = p.feeAmount
             .sub(p.rebateFee);
 
-        if (p.order.tokenS == p.order.feeToken) {
+        if (p.order.tokenS == p.order.feeToken && p.order.tokenTypeS == p.order.tokenTypeFee) {
             amountSToFeeHolder = amountSToFeeHolder.add(amountFeeToFeeHolder);
             amountFeeToFeeHolder = 0;
         }
@@ -399,6 +399,7 @@ library RingHelper {
                 p.order.brokerInterceptor,
                 p.order.owner,
                 p.order.broker,
+                p.order.tokenTypeS,
                 p.order.tokenS,
                 p.order.trancheS,
                 amountSToBuyer + amountSToFeeHolder + margin
@@ -407,6 +408,7 @@ library RingHelper {
                 p.order.brokerInterceptor,
                 p.order.owner,
                 p.order.broker,
+                p.order.tokenTypeFee,
                 p.order.feeToken,
                 0x0,
                 amountFeeToFeeHolder
@@ -482,6 +484,7 @@ library RingHelper {
         address brokerInterceptor,
         address owner,
         address broker,
+        Data.TokenType tokenType,
         address token,
         bytes32 tranche,
         uint    amount
@@ -494,6 +497,7 @@ library RingHelper {
             brokerInterceptor.onTokenSpentSafe(
                 owner,
                 broker,
+                uint(tokenType),
                 token,
                 tranche,
                 amount

@@ -223,6 +223,10 @@ library OrderHelper {
         valid = valid && !(order.tokenBFeePercentage > 0 && order.tokenTypeB == Data.TokenType.ERC1400);
         valid = valid && (order.walletSplitPercentage <= 100); // invalid wallet split percentage
 
+        valid = valid && !(order.tokenTypeS == Data.TokenType.ERC20 && order.trancheS != 0x0);
+        valid = valid && !(order.tokenTypeB == Data.TokenType.ERC20 && order.trancheB != 0x0);
+        valid = valid && !(order.tokenTypeS == Data.TokenType.ERC20 && order.transferDataS.length > 0);
+
         valid = valid && (order.validSince <= now); // order is too early to match
 
         order.valid = order.valid && valid;
@@ -440,6 +444,7 @@ library OrderHelper {
 
     /// @return Amount of ERC20 token that can be spent by the broker
     function getBrokerAllowance(
+        Data.TokenType tokenType,
         address tokenAddress,
         bytes32 tranche,
         address owner,
@@ -452,6 +457,7 @@ library OrderHelper {
         allowance = brokerInterceptor.getAllowanceSafe(
             owner,
             broker,
+            uint(tokenType),
             tokenAddress,
             tranche
         );
@@ -494,6 +500,7 @@ library OrderHelper {
         if (brokerInterceptor != 0x0) {
             if (!brokerSpendable.initialized) {
                 brokerSpendable.amount = getBrokerAllowance(
+                    tokenType,
                     tokenAddress,
                     tranche,
                     owner,
