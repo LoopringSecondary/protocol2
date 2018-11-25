@@ -133,7 +133,6 @@ library ExchangeDeserializer {
         bytes memory emptyBytes = new bytes(0);
         uint orderStructSize = 38 * 32;
         // Memory for orders length + numOrders order pointers
-        uint arrayDataSize = (1 + numOrders) * 32;
         Data.Spendable[] memory spendableList = new Data.Spendable[](numSpendables);
         uint offset;
 
@@ -141,12 +140,11 @@ library ExchangeDeserializer {
             // Allocate memory for all orders
             orders := mload(0x40)
             mstore(add(orders, 0), numOrders)                       // orders.length
-            // Reserve the memory for the orders array
-            mstore(0x40, add(orders, add(arrayDataSize, mul(orderStructSize, numOrders))))
+
+            // Order data is stored after the orders array data
+            let order := add(orders, mul(add(1, numOrders), 32))
 
             for { let i := 0 } lt(i, numOrders) { i := add(i, 1) } {
-                let order := add(orders, add(arrayDataSize, mul(orderStructSize, i)))
-
                 // Store the memory location of this order in the orders array
                 mstore(add(orders, mul(add(1, i), 32)), order)
 
@@ -398,7 +396,10 @@ library ExchangeDeserializer {
 
                 // Advance to the next order
                 tablesPtr := add(tablesPtr, 60)
+                order := add(order, orderStructSize)
             }
+            // Reserve the memory for the orders array
+            mstore(0x40, order)
         }
     }
 

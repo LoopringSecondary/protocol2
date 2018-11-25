@@ -298,7 +298,7 @@ export class ExchangeTestUtil {
         await token.setBalance(owner, tranche, amount);
         break;
       default:
-        assert(false);
+        assert(false, "Unknown token type: " + tokenType);
     }
   }
 
@@ -311,7 +311,7 @@ export class ExchangeTestUtil {
         await token.addBalance(owner, tranche, amount);
         break;
       default:
-        assert(false);
+        assert(false, "Unknown token type: " + tokenType);
     }
   }
 
@@ -409,7 +409,9 @@ export class ExchangeTestUtil {
         addAddress(addressBook, order.tokenRecipient, "TokenRecipient[" + i + "]");
       }
       addAddress(addressBook, order.walletAddr, "Wallet[" + i + "]");
-      addAddress(addressBook, order.hash.toString("hex"), "Hash[" + i + "]");
+      if (order.hash) {
+        addAddress(addressBook, order.hash.toString("hex"), "Hash[" + i + "]");
+      }
     }
     return addressBook;
   }

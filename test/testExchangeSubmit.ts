@@ -894,6 +894,41 @@ contract("Exchange_Submit", (accounts: string[]) => {
       );
     });
 
+    it("should not be able to pass in an invalid token type", async () => {
+      const ringsInfo: pjs.RingsInfo = {
+        rings: [[0, 1]],
+        orders: [
+          {
+            tokenS: "WETH",
+            tokenB: "LRC",
+            amountS: 10e18,
+            amountB: 10e18,
+            tokenTypeB: pjs.TokenType.ERC20,
+            trancheB: "0x" + "01".repeat(32),
+          },
+          {
+            tokenS: "LRC",
+            tokenB: "WETH",
+            amountS: 10e18,
+            amountB: 10e18,
+            tokenTypeS: pjs.TokenType.ERC20,
+            trancheS: "0x" + "01".repeat(32),
+          },
+        ],
+        expected: {
+          revert: true,
+        },
+      };
+      await exchangeTestUtil.setupRings(ringsInfo);
+
+      // Change the token type
+      ringsInfo.orders[0].tokenTypeB = pjs.TokenType.COUNT;
+      ringsInfo.orders[1].tokenTypeS = pjs.TokenType.COUNT;
+
+      // submitRings should revert
+      await exchangeTestUtil.submitRingsAndSimulate(ringsInfo);
+    });
+
   });
 
 });

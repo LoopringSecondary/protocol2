@@ -418,7 +418,7 @@ library OrderHelper {
         spendable = (balance < spendable) ? balance : spendable;
     }
 
-    /// @return Amount of ERC20 token that can be spent by this contract.
+    /// @return Amount of ERC1400 token that can be spent by this contract.
     function getERC1400Spendable(
         ITradeDelegate delegate,
         address tokenAddress,
@@ -442,7 +442,7 @@ library OrderHelper {
         }
     }
 
-    /// @return Amount of ERC20 token that can be spent by the broker
+    /// @return Amount of token that can be spent by the broker
     function getBrokerAllowance(
         Data.TokenType tokenType,
         address tokenAddress,
@@ -492,7 +492,7 @@ library OrderHelper {
                     owner
                 );
             } else {
-                assert(false);
+                tokenSpendable.amount = 0;
             }
             tokenSpendable.initialized = true;
         }

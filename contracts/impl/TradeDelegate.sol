@@ -108,6 +108,8 @@ contract TradeDelegate is ITradeDelegate, Claimable, NoDefaultFunc {
         onlyAuthorized
         notSuspended
     {
+        // Because this function is external we cannot directly use a bytes parameters
+        // without manually copying it to from callData to memory
         uint batchPtr;
         uint batchLength;
         assembly {
