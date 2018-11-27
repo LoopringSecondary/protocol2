@@ -60,6 +60,13 @@ contract IRingSubmitter {
         bytes bs
     );
 
+    function testSig(
+        address signer,
+        bytes32 plaintext,
+        bytes   multihash
+    )
+    external;
+
     /// @dev   Submit order-rings for validation and settlement.
     /// @param data Packed data of all rings.
     function submitRings(

@@ -181,7 +181,7 @@ library OrderHelper {
             validateUnstableInfo(order, ctx);
         }
 
-        checkP2P(order);
+        // checkP2P(order);
     }
 
     function validateAllInfo(

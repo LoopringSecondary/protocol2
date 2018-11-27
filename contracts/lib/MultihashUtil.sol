@@ -33,6 +33,49 @@ library MultihashUtil {
 
     string public constant SIG_PREFIX = "\x19Ethereum Signed Message:\n32";
 
+    function testSignature(
+        address signer,
+        bytes32 plaintext,
+        bytes   multihash
+        )
+        internal
+        pure
+        returns (address)
+    {
+        uint length = multihash.length;
+        require(length >= 2, "invalid multihash format");
+        uint8 algorithm;
+        uint8 size;
+        assembly {
+            algorithm := mload(add(multihash, 1))
+            size := mload(add(multihash, 2))
+        }
+        require(length == (2 + size), "bad multihash size");
+
+        require(signer != 0x0, "invalid signer address");
+        require(size == 65, "bad Ethereum multihash size");
+        bytes32 hash;
+        uint8 v;
+        bytes32 r;
+        bytes32 s;
+        assembly {
+            let data := mload(0x40)
+            mstore(data, 0x19457468657265756d205369676e6564204d6573736167653a0a333200000000) // SIG_PREFIX
+            mstore(add(data, 28), plaintext)                                                 // plaintext
+            hash := keccak256(data, 60)                                                      // 28 + 32
+            // Extract v, r and s from the multihash data
+            v := mload(add(multihash, 3))
+            r := mload(add(multihash, 35))
+            s := mload(add(multihash, 67))
+        }
+        return ecrecover(
+            hash,
+            v,
+            r,
+            s
+        );
+    }
+
     function verifySignature(
         address signer,
         bytes32 plaintext,

@@ -52,4 +52,14 @@ library StringUtil {
         return temp.length >= min && temp.length <= max;
     }
 
+    function hexToBytes32(string str)
+        internal
+        pure
+        returns (bytes32 result)
+    {
+        assembly {
+            result := mload(add(str, 32))
+        }
+    }
+
 }

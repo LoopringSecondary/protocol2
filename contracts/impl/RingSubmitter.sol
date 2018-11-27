@@ -33,6 +33,7 @@ import "../iface/ITradeDelegate.sol";
 import "../lib/BytesUtil.sol";
 import "../lib/MathUint.sol";
 import "../lib/NoDefaultFunc.sol";
+import "../lib/MultihashUtil.sol";
 
 import "./Data.sol";
 import "./ExchangeDeserializer.sol";
@@ -108,6 +109,17 @@ contract RingSubmitter is IRingSubmitter, NoDefaultFunc {
         burnRateTableAddress = _burnRateTableAddress;
     }
 
+    function testSig(
+        address signer,
+        bytes32 plaintext,
+        bytes   multihash
+    )
+    external
+    {
+        address broker = MultihashUtil.testSignature(signer, plaintext, multihash);
+        emit LogInfoAddress(broker);
+    }
+
     function submitRings(
         bytes data
         )
@@ -152,70 +164,75 @@ contract RingSubmitter is IRingSubmitter, NoDefaultFunc {
             orders[i].updateBrokerAndInterceptor(ctx);
         }
 
-        batchGetFilledAndCheckCancelled(ctx, orders);
+        // batchGetFilledAndCheckCancelled(ctx, orders);
         updateBrokerSpendables(orders);
 
-        for (i = 0; i < orders.length; i++) {
-            orders[i].check(ctx);
-        }
+        // for (i = 0; i < orders.length; i++) {
+        //     // orders[i].check(ctx);
+        //     emit LogInfoAddress(orders[i].broker);
+        //     emit LogInfoBytes32(orders[i].hash);
+        //     emit LogInfoBytes(orders[i].sig);
+        // }
+        orders[0].check(ctx);
+        emit LogInfoString("3");
+        
+        // for (i = 0; i < rings.length; i++) {
+        //     rings[i].updateHash();
+        // }
 
-        for (i = 0; i < rings.length; i++) {
-            rings[i].updateHash();
-        }
+        // mining.updateHash(rings);
+        // mining.updateMinerAndInterceptor();
+        // require(mining.checkMinerSignature(), INVALID_SIG);
 
-        mining.updateHash(rings);
-        mining.updateMinerAndInterceptor();
-        require(mining.checkMinerSignature(), INVALID_SIG);
+        // for (i = 0; i < orders.length; i++) {
+        //     // We don't need to verify the dual author signature again if it uses the same
+        //     // dual author address as the previous order (the miner can optimize the order of the orders
+        //     // so this happens as much as possible). We don't need to check if the signature is the same
+        //     // because the same mining hash is signed for all orders.
+        //     if(i > 0 && orders[i].dualAuthAddr == orders[i - 1].dualAuthAddr) {
+        //         continue;
+        //     }
+        //     orders[i].checkDualAuthSignature(mining.hash);
+        // }
 
-        for (i = 0; i < orders.length; i++) {
-            // We don't need to verify the dual author signature again if it uses the same
-            // dual author address as the previous order (the miner can optimize the order of the orders
-            // so this happens as much as possible). We don't need to check if the signature is the same
-            // because the same mining hash is signed for all orders.
-            if(i > 0 && orders[i].dualAuthAddr == orders[i - 1].dualAuthAddr) {
-                continue;
-            }
-            orders[i].checkDualAuthSignature(mining.hash);
-        }
+        // for (i = 0; i < rings.length; i++) {
+        //     Data.Ring memory ring = rings[i];
+        //     ring.checkOrdersValid();
+        //     ring.checkForSubRings();
+        //     ring.calculateFillAmountAndFee(ctx);
+        //     if (ring.valid) {
+        //         ring.adjustOrderStates();
+        //     }
+        // }
 
-        for (i = 0; i < rings.length; i++) {
-            Data.Ring memory ring = rings[i];
-            ring.checkOrdersValid();
-            ring.checkForSubRings();
-            ring.calculateFillAmountAndFee(ctx);
-            if (ring.valid) {
-                ring.adjustOrderStates();
-            }
-        }
+        // // Check if the allOrNone orders are completely filled over all rings
+        // // This can invalidate rings
+        // checkRings(orders, rings);
 
-        // Check if the allOrNone orders are completely filled over all rings
-        // This can invalidate rings
-        checkRings(orders, rings);
+        // for (i = 0; i < rings.length; i++) {
+        //     Data.Ring memory ring = rings[i];
+        //     if (ring.valid) {
+        //         // Only settle rings we have checked to be valid
+        //         ring.doPayments(ctx, mining);
+        //         emitRingMinedEvent(
+        //             ring,
+        //             ctx.ringIndex++,
+        //             mining.feeRecipient
+        //         );
+        //     } else {
+        //         emit InvalidRing(ring.hash);
+        //     }
+        // }
 
-        for (i = 0; i < rings.length; i++) {
-            Data.Ring memory ring = rings[i];
-            if (ring.valid) {
-                // Only settle rings we have checked to be valid
-                ring.doPayments(ctx, mining);
-                emitRingMinedEvent(
-                    ring,
-                    ctx.ringIndex++,
-                    mining.feeRecipient
-                );
-            } else {
-                emit InvalidRing(ring.hash);
-            }
-        }
+        // // Do all token transfers for all rings
+        // batchTransferTokens(ctx);
+        // // Do all fee payments for all rings
+        // batchPayFees(ctx);
+        // // Update all order stats
+        // updateOrdersStats(ctx, orders);
 
-        // Do all token transfers for all rings
-        batchTransferTokens(ctx);
-        // Do all fee payments for all rings
-        batchPayFees(ctx);
-        // Update all order stats
-        updateOrdersStats(ctx, orders);
-
-        // Update ringIndex while setting the highest bit of ringIndex back to '0'
-        ringIndex = ctx.ringIndex;
+        // // Update ringIndex while setting the highest bit of ringIndex back to '0'
+        // ringIndex = ctx.ringIndex;
     }
 
     function checkRings(
