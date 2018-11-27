@@ -105,7 +105,13 @@ library OrderHelper {
         /*         order.walletSplitPercentage, */
         /*         order.tokenSFeePercentage, */
         /*         order.tokenBFeePercentage, */
-        /*         order.allOrNone */
+        /*         order.allOrNone, */
+        /*         order.tokenTypeS, */
+        /*         order.tokenTypeB, */
+        /*         order.tokenTypeFee, */
+        /*         order.trancheS, */
+        /*         order.trancheB, */
+        /*         order.transferDataS */
         /*     ) */
         /* ); */
         /* order.hash = keccak256( */
