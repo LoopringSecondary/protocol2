@@ -66,7 +66,7 @@ contract("BurnManager", (accounts: string[]) => {
   beforeEach(async () => {
     // Fresh FeeHolder for each test
     feeHolder = await FeeHolder.new(tradeDelegate.address);
-    burnManager = await BurnManager.new(feeHolder.address, tokenLRC);
+    burnManager = await BurnManager.new(feeHolder.address, tokenLRC, "0x0");
     dummyExchange = await DummyExchange.new(tradeDelegate.address, "0x0", feeHolder.address, "0x0");
     await authorizeAddressChecked(dummyExchange.address, deployer);
     await authorizeAddressChecked(burnManager.address, deployer);
@@ -87,7 +87,7 @@ contract("BurnManager", (accounts: string[]) => {
       await burnChecked(tokenLRC, amount);
     });
 
-    it("should not be able to burn non-LRC tokens for now", async () => {
+    it.skip("should not be able to burn non-LRC tokens for now", async () => {
       const amount = 1e18;
 
       // Deposit some LRC in the fee holder contract

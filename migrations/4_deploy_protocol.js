@@ -44,7 +44,7 @@ module.exports = function(deployer, network, accounts) {
           BurnRateTable.address,
         ),
         deployer.deploy(OrderCanceller, TradeHistory.address),
-        deployer.deploy(BurnManager, FeeHolder.address, LRCToken.address),
+        deployer.deploy(BurnManager, FeeHolder.address, LRCToken.address, "0x0"),
       ]);
     }).then(() => {
       // do nothing
