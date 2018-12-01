@@ -19,18 +19,20 @@ pragma solidity 0.4.24;
 pragma experimental "v0.5.0";
 pragma experimental "ABIEncoderV2";
 
-import "../external/IDutchExchange.sol";
+// import "../external/IDutchExchange.sol";
 import "../iface/IFeeHolder.sol";
 import "../lib/BurnableERC20.sol";
 import "../lib/MathUint.sol";
 import "../lib/NoDefaultFunc.sol";
+
+import "@gnosis.pm/dx-contracts/contracts/DutchExchange.sol";
 
 
 /// @author Brecht Devos - <brecht@loopring.org>
 contract BurnManager is NoDefaultFunc {
     using MathUint for uint;
 
-    event Auction(uint indexed auctionIndex, address indexed token, uint amount);
+    event BurnAuction(uint indexed auctionIndex, address indexed token, uint amount);
 
     address public feeHolderAddress = 0x0;
     address public lrcAddress = 0x0;
@@ -66,14 +68,14 @@ contract BurnManager is NoDefaultFunc {
 
         if (token != lrcAddress) {
             // Use DutchX to sell the tokens
-            IDutchExchange dutchExchange = IDutchExchange(dutchExchangeAddress);
+            DutchExchange dutchExchange = DutchExchange(dutchExchangeAddress);
             BurnableERC20(token).approve(dutchExchangeAddress, balance);
             (
                 /*uint newBalance*/,
                 uint auctionIndex,
                 /*uint newSellerBal*/
             ) = dutchExchange.depositAndSell(token, lrcAddress, balance);
-            emit Auction(auctionIndex, token, balance);
+            emit BurnAuction(auctionIndex, token, balance);
         } else {
             // Burn the LRC
             _burn(balance);
@@ -91,14 +93,14 @@ contract BurnManager is NoDefaultFunc {
     {
         require(auctionSellTokens.length == auctionIndices.length, INVALID_VALUE);
 
-        // We always sell to LRC
+        // We always buy LRC
         address[] memory auctionBuyTokens = new address[](auctionSellTokens.length);
         for (uint i = 0; i < auctionSellTokens.length; i++) {
             auctionBuyTokens[i] = lrcAddress;
         }
 
         // Claim the LRC we bought
-        IDutchExchange dutchExchange = IDutchExchange(dutchExchangeAddress);
+        DutchExchange dutchExchange = DutchExchange(dutchExchangeAddress);
         dutchExchange.claimTokensFromSeveralAuctionsAsSeller(
             auctionSellTokens,
             auctionBuyTokens,
@@ -122,7 +124,9 @@ contract BurnManager is NoDefaultFunc {
         )
         internal
     {
-        require(BurnableERC20(lrcAddress).burn(amount), BURN_FAILURE);
+        if (amount > 0) {
+            require(BurnableERC20(lrcAddress).burn(amount), BURN_FAILURE);
+        }
     }
 
 }

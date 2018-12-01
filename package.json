@@ -19,7 +19,7 @@
     "compile": "rm -rf build/contracts && truffle compile",
     "migrate": "npm run transpile && truffle migrate",
     "deploy": "npm run migrate --network kovan",
-    "ganache": "ganache-cli -a 50 --acctKeys './ganache_account_keys.txt'",
+    "ganache": "ganache-cli -e 10000 -a 50 --acctKeys './ganache_account_keys.txt'",
     "coverage": "./node_modules/.bin/solidity-coverage",
     "truffle": "truffle",
     "v": "node -v"
@@ -48,6 +48,7 @@
     "webpack": "^4.0.0"
   },
   "dependencies": {
+    "@gnosis.pm/dx-contracts": "^2.0.0-SNAPSHOT.5",
     "@types/bitwise-xor": "0.0.30",
     "bignumber.js": "^4.1.0",
     "bitwise-xor": "0.0.0",

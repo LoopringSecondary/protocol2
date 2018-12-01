@@ -8,6 +8,13 @@ var DummyBurnManager = artifacts.require("./test/DummyBurnManager");
 var LRCToken = artifacts.require("./test/tokens/LRC.sol");
 var DeserializerTest = artifacts.require("./test/DeserializerTest.sol");
 
+// migrateDx
+//  * Is a migration script made for deploying DutchX in a local-ganache test
+//    environment in a simpler way
+//  * For more details check out:
+//    https://github.com/gnosis/dx-contracts/blob/master/src/migrations/index.js
+const migrateDx = require("@gnosis.pm/dx-contracts/src/migrations");
+
 module.exports = function(deployer, network, accounts) {
   if (network === "live" || network === "ropsten" || network === "rinkeby") {
     // ignore.
@@ -29,6 +36,16 @@ module.exports = function(deployer, network, accounts) {
                         FeeHolder.address, RingSubmitter.address),
         deployer.deploy(DummyBurnManager, FeeHolder.address),
       ]);
+    }).then((contracts) => {
+      return migrateDx({
+        accounts,
+        artifacts,
+        deployer,
+        network,
+        thresholdAuctionStartUsd: process.env.THRESHOLD_AUCTION_START_USD,
+        thresholdNewTokenPairUsd: process.env.THRESHOLD_NEW_TOKEN_PAIR_USD,
+        web3,
+      });
     });
   }
 };
