@@ -10,6 +10,7 @@ const {
   DummyToken,
   LRCToken,
   WETHToken,
+  GTOToken,
 } = new Artifacts(artifacts);
 
 const DutchExchange = artifacts.require("DutchExchange");
@@ -21,14 +22,20 @@ contract("BurnManager", (accounts: string[]) => {
   const user1 = accounts[1];
   const user2 = accounts[2];
 
+  const waitingPeriodNewTokenPair = 6 * 3600;
+  const waitingPeriodEqualPrice = 6 * 3600;
+
   let tradeDelegate: any;
   let feeHolder: any;
   let dummyExchange: any;
   let burnManager: any;
   let dutchExchange: any;
   let etherToken: any;
+  let LRC: any;
+  let GTO: any;
   let tokenLRC: string;
   let tokenWETH: string;
+  let tokenGTO: string;
 
   const advanceBlockTimestamp = async (seconds: number) => {
     const previousTimestamp = web3.eth.getBlock(web3.eth.blockNumber).timestamp;
@@ -58,6 +65,18 @@ contract("BurnManager", (accounts: string[]) => {
     });
   };
 
+  const buy = async (auctionIndex: number, sellToken: string, buyToken: string, amount: number, user: string) => {
+    // Buy using token in the auction
+    const Token = DummyToken.at(buyToken);
+    // Deposit some LRC in the fee holder contract
+    await Token.transfer(user, amount, {from: deployer});
+    // Deposit funds to DutchX
+    await Token.approve(dutchExchange.address, amount, {from: user});
+    await dutchExchange.deposit(buyToken, amount, {from: user});
+    // Buy WETH using LRC and end the auction
+    await dutchExchange.postBuyOrder(sellToken, buyToken, auctionIndex, amount, {from: user});
+  };
+
   const authorizeAddressChecked = async (address: string, transactionOrigin: string) => {
     await tradeDelegate.authorizeAddress(address, {from: transactionOrigin});
     await assertAuthorized(address);
@@ -70,14 +89,13 @@ contract("BurnManager", (accounts: string[]) => {
 
   const burnChecked = async (token: string, expectedAmount: number) => {
     const dummyToken = DummyToken.at(token);
-    const LRC = DummyToken.at(tokenLRC);
 
     const balanceFeeHolderBefore = (await dummyToken.balanceOf(feeHolder.address)).toNumber();
     const burnBalanceBefore = (await feeHolder.feeBalances(token, feeHolder.address)).toNumber();
     const totalLRCSupplyBefore = await LRC.totalSupply();
 
     // Burn
-    const success = await burnManager.burn(token, {from: user1});
+    const success = await burnManager.burn([token], {from: user1});
     assert(success, "Burn needs to succeed");
 
     const balanceFeeHolderAfter = (await dummyToken.balanceOf(feeHolder.address)).toNumber();
@@ -88,22 +106,70 @@ contract("BurnManager", (accounts: string[]) => {
     if (token === tokenLRC) {
       assert.equal(totalLRCSupplyAfter, totalLRCSupplyBefore - expectedAmount,
                    "Total LRC supply should have been decreased by all LRC burned");
+    } else {
+       // Listen to the BurnAuction event to get the auction index
+       const eventBurnAuctionArr: any = await getEventsFromContract(burnManager, "BurnAuction", web3.eth.blockNumber);
+       const burnAuctionIndices = eventBurnAuctionArr.map((eventObj: any) => {
+         return eventObj.args.auctionIndex;
+       });
+       assert.equal(burnAuctionIndices.length, 1, "Only a single BurnAuction event can be emitted per token");
+       const auctionIndex = burnAuctionIndices[0];
+       return auctionIndex;
     }
   };
 
-  const addToken = async (token: string) => {
+  const burnAuctionedChecked = async (tokens: string[], auctionIndices: number[], expectedAmount: number) => {
+    await burnManager.burnAuctioned(tokens, auctionIndices);
+    // Listen to the Burn event on the LRC contract to know how much was burned
+    const eventBurnArr: any = await getEventsFromContract(LRC, "Burn", web3.eth.blockNumber);
+    const burnValues = eventBurnArr.map((eventObj: any) => {
+      return eventObj.args.value;
+    });
+    assert.equal(burnValues.length, 1, "Only a single Burn event can be emitted");
+    // Amount LRC bought should match the amount we expect within 2% accuracy
+    // (Fee and time can differ a bit)
+    assert(Math.abs(burnValues[0] - (expectedAmount)) < 2 * expectedAmount / 100,
+           "Burned amount should match the amount LRC bought");
+  };
+
+  const addTokenPair = async (sellToken: string, buyToken: string, price: number) => {
     // We can add a token to DutchX by selling 10.000$ WETH or more for the token we want to add
     const amount = 100e18;
-    await etherToken.deposit({value: amount, from: user1});
-    await etherToken.approve(dutchExchange.address, amount, {from: user1});
-    await dutchExchange.deposit(etherToken.address, amount, {from: user1});
-    await dutchExchange.addTokenPair(etherToken.address, tokenLRC, amount, 0, 10, 1, {from: user1});
+    if (sellToken === etherToken.address) {
+      await etherToken.deposit({value: amount, from: user1});
+    } else {
+      const Token = DummyToken.at(sellToken);
+      await Token.transfer(user1, amount, {from: deployer});
+    }
+
+    const SellToken = (sellToken === etherToken.address) ? etherToken : DummyToken.at(sellToken);
+    await SellToken.approve(dutchExchange.address, amount, {from: user1});
+    await dutchExchange.deposit(sellToken, amount, {from: user1});
+    await dutchExchange.addTokenPair(sellToken, buyToken, amount, 0, price, 1, {from: user1});
+
+    // Listen to the BurnAuction event to get the auction index
+    const eventBurnAuctionArr: any =
+      await getEventsFromContract(dutchExchange, "AuctionStartScheduled", web3.eth.blockNumber);
+    const burnAuctionIndices = eventBurnAuctionArr.map((eventObj: any) => {
+      return eventObj.args.auctionIndex;
+    });
+    assert.equal(burnAuctionIndices.length, 1, "Only a single BurnAuction event can be emitted per token");
+    const auctionIndex = burnAuctionIndices[0];
+
+    // Wait 6 hours until the the price is at the expected price
+    await advanceBlockTimestamp(waitingPeriodNewTokenPair + waitingPeriodEqualPrice);
+
+    // Buy WETH using LRC in the auction
+    await buy(auctionIndex, sellToken, buyToken, amount * price * 2, user2);
   };
 
   before(async () => {
     tokenLRC = LRCToken.address;
     tokenWETH = WETHToken.address;
+    tokenGTO = GTOToken.address;
     etherToken = await EtherToken.deployed();
+    LRC = DummyToken.at(tokenLRC);
+    GTO = DummyToken.at(tokenGTO);
 
     tradeDelegate = await TradeDelegate.deployed();
     const dutchExchangeProxy = await DutchExchangeProxy.deployed();
@@ -124,7 +190,6 @@ contract("BurnManager", (accounts: string[]) => {
       const amount = 1e18;
 
       // Deposit some LRC in the fee holder contract
-      const LRC = DummyToken.at(tokenLRC);
       await LRC.transfer(feeHolder.address, amount, {from: deployer});
       const feePayments = new FeePayments();
       feePayments.add(feeHolder.address, tokenLRC, amount);
@@ -134,44 +199,62 @@ contract("BurnManager", (accounts: string[]) => {
       await burnChecked(tokenLRC, amount);
     });
 
-    it("should be able to burn non-LRC tokens using DutchX", async () => {
-      // First make sure we can trade LRC on DutchX by adding the token pair WETH/LRC
-      await addToken(tokenLRC);
+    describe("DutchX", () => {
+      it("should be able to sell WETH for LRC using DutchX and burn the LRC amount bought", async () => {
+        // First make sure we can trade LRC on DutchX by adding the token pair WETH/LRC
+        await addTokenPair(etherToken.address, tokenLRC, 10);
 
-      const amount = 100e18;
+        const amount = 10e18;
 
-      // Deposit some LRC in the fee holder contract
-      await etherToken.deposit({value: amount, from: user1});
-      await etherToken.transfer(feeHolder.address, amount, {from: user1});
-      const feePayments = new FeePayments();
-      feePayments.add(feeHolder.address, etherToken.address, amount);
-      await dummyExchange.batchAddFeeBalances(feePayments.getData());
+        // Deposit some WETH in the fee holder contract
+        await etherToken.deposit({value: amount, from: user1});
+        await etherToken.transfer(feeHolder.address, amount, {from: user1});
+        const feePayments = new FeePayments();
+        feePayments.add(feeHolder.address, etherToken.address, amount);
+        await dummyExchange.batchAddFeeBalances(feePayments.getData());
 
-      // Burn WETH
-      await burnManager.burn(etherToken.address);
-      // Listen to the BurnAuction event to get the auction index
-      const eventArr: any = await getEventsFromContract(burnManager, "BurnAuction", web3.eth.blockNumber);
-      const burnAuctionIndices = eventArr.map((eventObj: any) => {
-        return eventObj.args.auctionIndex;
+        // Burn WETH
+        const auctionIndex = await burnChecked(etherToken.address, amount);
+
+        // Wait 6 hours until the the price is at the expected price
+        await advanceBlockTimestamp(waitingPeriodEqualPrice);
+
+        // Buy WETH using LRC in the auction
+        await buy(auctionIndex, etherToken.address, tokenLRC, amount * 100, user2);
+
+        // Burn the LRC bought in the auction
+        await burnAuctionedChecked([etherToken.address], [auctionIndex], amount * 10);
+
+        // Transaction shouldn't revert when the tokens in the auction were already burned
+        await burnManager.burnAuctioned([etherToken.address], [auctionIndex]);
       });
-      assert.equal(burnAuctionIndices.length, 1, "Only a single BurnAuction event can be emitted");
-      const auctionIndex = burnAuctionIndices[0];
 
-      // Wait 6 hours until the the price is at the expected price
-      await advanceBlockTimestamp(6 * 60 * 60 + 1000);
+      it("should be able to sell non-WETH for LRC using DutchX and burn the LRC amount bought", async () => {
+        // Make sure we can trade GTO on DutchX by adding the token pair WETH/GTO
+        await addTokenPair(etherToken.address, tokenGTO, 10);
+        // Now add the GTO/LRC pair
+        await addTokenPair(tokenGTO, tokenLRC, 1);
 
-      // Buy WETH using LRC in the auction
-      const LRC = DummyToken.at(tokenLRC);
-      // Deposit some LRC in the fee holder contract
-      await LRC.transfer(user2, amount * 100, {from: deployer});
-      // Deposit funds to DutchX
-      await LRC.approve(dutchExchange.address, amount * 100, {from: user2});
-      await dutchExchange.deposit(tokenLRC, amount * 100, {from: user2});
-      // But WETH using LRC and end to auction
-      await dutchExchange.postBuyOrder(etherToken.address, LRC.address, auctionIndex, amount * 100, {from: user2});
+        const amount = 10e18;
 
-      // Burn the LRC bought in the auction
-      await burnManager.burnAuctioned([ etherToken.address ], [ auctionIndex ]);
+        // Deposit some GTO in the fee holder contract
+        await GTO.transfer(feeHolder.address, amount, {from: deployer});
+        const feePayments = new FeePayments();
+        feePayments.add(feeHolder.address, GTO.address, amount);
+        await dummyExchange.batchAddFeeBalances(feePayments.getData());
+
+        // Burn GTO
+        const auctionIndex = await burnChecked(GTO.address, amount);
+
+        // Wait 6 hours until the the price is at the expected price
+        await advanceBlockTimestamp(waitingPeriodEqualPrice);
+
+        // Buy GTO using LRC in the auction
+        await buy(auctionIndex, tokenGTO, tokenLRC, amount * 100, user2);
+
+        // Burn the LRC bought in the auction
+        await burnAuctionedChecked([GTO.address], [auctionIndex], amount);
+      });
     });
   });
 });

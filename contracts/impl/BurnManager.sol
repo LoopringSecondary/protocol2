@@ -54,31 +54,40 @@ contract BurnManager is NoDefaultFunc {
     }
 
     function burn(
-        address token
+        address[] tokens
         )
         external
         returns (bool)
     {
         IFeeHolder feeHolder = IFeeHolder(feeHolderAddress);
+        DutchExchange dutchExchange = DutchExchange(dutchExchangeAddress);
 
-        // Withdraw the complete token balance
-        uint balance = feeHolder.feeBalances(token, feeHolderAddress);
-        bool success = feeHolder.withdrawBurned(token, balance);
-        require(success, WITHDRAWAL_FAILURE);
+        for (uint i = 0; i < tokens.length; i++) {
+            address token = tokens[i];
 
-        if (token != lrcAddress) {
-            // Use DutchX to sell the tokens
-            DutchExchange dutchExchange = DutchExchange(dutchExchangeAddress);
-            BurnableERC20(token).approve(dutchExchangeAddress, balance);
-            (
-                /*uint newBalance*/,
-                uint auctionIndex,
-                /*uint newSellerBal*/
-            ) = dutchExchange.depositAndSell(token, lrcAddress, balance);
-            emit BurnAuction(auctionIndex, token, balance);
-        } else {
-            // Burn the LRC
-            _burn(balance);
+            // Withdraw the complete token balance
+            uint balance = feeHolder.feeBalances(token, feeHolderAddress);
+            if (balance > 0) {
+                // Check if this auction is allowed (i.e. addTokenPair was successfully done)
+                if (token == lrcAddress || dutchExchange.getAuctionIndex(token, lrcAddress) > 0) {
+                    // Witdraw the tokens from the fee holder contract
+                    bool success = feeHolder.withdrawBurned(token, balance);
+                    require(success, WITHDRAWAL_FAILURE);
+
+                    if (token != lrcAddress) {
+                        BurnableERC20(token).approve(dutchExchangeAddress, balance);
+                        (
+                            /*uint newBalance*/,
+                            uint auctionIndex,
+                            /*uint newSellerBal*/
+                        ) = dutchExchange.depositAndSell(token, lrcAddress, balance);
+                        emit BurnAuction(auctionIndex, token, balance);
+                    } else {
+                        // Burn the LRC
+                        _burn(balance);
+                    }
+                }
+            }
         }
 
         return true;
@@ -93,28 +102,32 @@ contract BurnManager is NoDefaultFunc {
     {
         require(auctionSellTokens.length == auctionIndices.length, INVALID_VALUE);
 
-        // We always buy LRC
-        address[] memory auctionBuyTokens = new address[](auctionSellTokens.length);
+        DutchExchange dutchExchange = DutchExchange(dutchExchangeAddress);
         for (uint i = 0; i < auctionSellTokens.length; i++) {
-            auctionBuyTokens[i] = lrcAddress;
+            // Check if there is any available balance left first, otherwise
+            // claimSellerFunds reverts
+            uint balance = dutchExchange.sellerBalances(auctionSellTokens[i], lrcAddress, auctionIndices[i], this);
+            if (balance > 0) {
+                // Claim the LRC we bought
+                dutchExchange.claimSellerFunds(
+                    auctionSellTokens[i],
+                    lrcAddress,
+                    this,
+                    auctionIndices[i]
+                );
+            }
         }
 
-        // Claim the LRC we bought
-        DutchExchange dutchExchange = DutchExchange(dutchExchangeAddress);
-        dutchExchange.claimTokensFromSeveralAuctionsAsSeller(
-            auctionSellTokens,
-            auctionBuyTokens,
-            auctionIndices,
-            this
-        );
-
-        // Withdraw the LRC
+        // Check the total available LRC
         uint balance = dutchExchange.balances(lrcAddress, this);
-        uint newBalance = dutchExchange.withdraw(lrcAddress, balance);
-        require(newBalance == 0, INVALID_STATE);
+        if (balance > 0) {
+            // Withdraw the LRC
+            uint newBalance = dutchExchange.withdraw(lrcAddress, balance);
+            require(newBalance == 0, INVALID_STATE);
 
-        // Burn the LRC
-        _burn(balance);
+            // Burn the LRC
+            _burn(balance);
+        }
 
         return true;
     }
