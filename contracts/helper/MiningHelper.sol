@@ -69,7 +69,7 @@ library MiningHelper {
             // Store data back to front to allow overwriting data at the front because of padding
             mstore(add(data, 40), ringHashes)                               // ringHashes
             mstore(sub(add(data, 20), 12), mload(add(mining, 32)))          // mining.miner
-            mstore(sub(data, 12),          mload(add(mining,  0)))          // mining.feeRecipient
+            mstore(sub(data, 12),          mload(mining))          // mining.feeRecipient
             hash := keccak256(data, 72)                                     // 20 + 20 + 32
         }
         mining.hash = hash;

@@ -47,7 +47,7 @@ contract TradeHistory is ITradeHistory, Authorizable, Killable, NoDefaultFunc {
             bytes32 hash;
             uint filledAmount;
             assembly {
-                hash := calldataload(add(p,  0))
+                hash := calldataload(p)
                 filledAmount := calldataload(add(p, 32))
             }
             filled[hash] = filledAmount;
@@ -138,7 +138,7 @@ contract TradeHistory is ITradeHistory, Authorizable, Killable, NoDefaultFunc {
             uint validSince;
             bytes20 tradingPair;
             assembly {
-                broker := calldataload(add(p,  0))
+                broker := calldataload(p)
                 owner := calldataload(add(p, 32))
                 hash := calldataload(add(p, 64))
                 validSince := calldataload(add(p, 96))

@@ -60,7 +60,7 @@ contract FeeHolder is IFeeHolder, NoDefaultFunc {
         uint end = start + length * 32;
         for (uint p = start; p < end; p += 96) {
             assembly {
-                token := calldataload(add(p,  0))
+                token := calldataload(p)
                 owner := calldataload(add(p, 32))
                 value := calldataload(add(p, 64))
             }
