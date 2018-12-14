@@ -168,8 +168,9 @@ library RingHelper {
         }
     }
 
-    function checkOrdersValid(
-        Data.Ring ring
+    function checkValidity(
+        Data.Ring ring,
+        bool checkSubring
         )
         internal
         pure
@@ -179,51 +180,31 @@ library RingHelper {
         assembly {
             let prev := 0
             valid := and(valid, and(gt(ringSize,1), lt(ringSize, 8))) // ring.valid && (ring.size > 1 && ring.size <= 8)
+            let participations := mload(add(ring, 32))
 
             for { let i := 0 } lt(i, ringSize) { i := add(i, 1) } { // for (uint i = 0; i < ring.size; i++)
 
               prev := mod(sub(add(i, ringSize), 1), ringSize) //uint prev = (i + ring.size - 1) % ring.size;
-              let participations := mload(add(ring, 32))
+
               let participation := mload(add(participations, add(32, mul(i, 32))))   // participations[i]
               let prevParticipation := mload(add(participations, add(32, mul(prev, 32)))) // participations[prev]
               let order := mload(participation)
               let prevOrder := mload(prevParticipation)
+              let tokenS := mload(add(order, 64))
               //ring.valid && ring.participations[i].order.valid && ring.participations[i].order.tokenS == ring.participations[prev].order.tokenB:
-              valid := and(and(valid, mload(add(order, 992))),eq(mload(add(order, 64)), mload(add(prevOrder, 96))))
+              valid := and(and(valid, mload(add(order, 992))),eq(tokenS, mload(add(prevOrder, 96))))
 
-            }
-            mstore(add(ring, 128), valid) //update ring.valid
-        }
-    }
+              if and(checkSubring, lt(i, sub(ringSize, 1))) {
+                for {let j := add(i,1) } lt(j, ringSize) { j := add(j, 1) } { // for (uint j = i + 1; j < ring.size; j++) {
 
-    function checkForSubRings(
-        Data.Ring ring
-        )
-        internal
-        pure
-    {
-        uint ringSize = ring.size;
-        bool valid = ring.valid;
-        //address tokenS;
-        //address tokenJ;
-        assembly {
-            let participations := mload(add(ring, 32))
-
-            for { let i := 0 } lt(i, sub(ringSize,1)) { i := add(i, 1) } { // for (uint i = 0; i < ring.size - 1; i++) {
-
-              let participation := mload(add(participations, add(32, mul(i, 32))))   // participations[i]
-              let order := mload(participation)
-              let tokenS := mload(add(order, 64)) //address tokenS = ring.participations[i].order.tokenS;
-
-              for {let j := add(i,1) } lt(j, ringSize) { j := add(j, 1) } { // for (uint j = i + 1; j < ring.size; j++) {
-
-                let participationj := mload(add(participations, add(32, mul(j, 32))))   // participations[j]
-                let orderj := mload(participationj)
-                let tokenJ := mload(add(orderj, 64)) //address tokenJ = ring.participations[j].order.tokenS;
-                valid := and(valid, not(eq(tokenS, tokenJ))) // ring.valid && (tokenS != ring.participations[j].order.tokenS);
+                  let participationj := mload(add(participations, add(32, mul(j, 32))))   // participations[j]
+                  let orderj := mload(participationj)
+                  let tokenJ := mload(add(orderj, 64)) //address tokenJ = ring.participations[j].order.tokenS;
+                  valid := and(valid, not(eq(tokenS, tokenJ))) // ring.valid && (tokenS != ring.participations[j].order.tokenS);
+                }
               }
-            }
 
+            }
             mstore(add(ring, 128), valid) //update ring.valid
         }
     }

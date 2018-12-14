@@ -186,8 +186,7 @@ contract RingSubmitter is IRingSubmitter, NoDefaultFunc {
 
         for (i = 0; i < rings.length; i++) {
             Data.Ring memory ring = rings[i];
-            ring.checkOrdersValid();
-            ring.checkForSubRings();
+            ring.checkValidity(true);
             ring.calculateFillAmountAndFee(ctx);
             if (ring.valid) {
                 ring.adjustOrderStates();
@@ -249,7 +248,7 @@ contract RingSubmitter is IRingSubmitter, NoDefaultFunc {
                 for (uint i = 0; i < rings.length; i++) {
                     Data.Ring memory ring = rings[i];
                     if (ring.valid) {
-                        ring.checkOrdersValid();
+                        ring.checkValidity(false);
                         if (!ring.valid) {
                             // If the ring was valid before the completely filled check we have to revert the filled amountS
                             // of the orders in the ring. This is a bit awkward so maybe there's a better solution.
