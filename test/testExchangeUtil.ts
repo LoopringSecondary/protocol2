@@ -63,19 +63,19 @@ export class ExchangeTestUtil {
   public async getRingMinedEvents(fromBlock: number) {
     const parseFillsData = (data: string) => {
       const b = new pjs.Bitstream(data);
-      const fillSize = 8 * 32;
+      const fillSize = 232;
       const numFills = b.length() / fillSize;
       const fills: pjs.Fill[] = [];
       for (let offset = 0; offset < b.length(); offset += fillSize) {
         const fill: pjs.Fill = {
-          orderHash: "0x" + b.extractBytes32(offset).toString("hex"),
-          owner: "0x" + b.extractBytes32(offset + 32).toString("hex").slice(24),
-          tokenS: "0x" + b.extractBytes32(offset + 64).toString("hex").slice(24),
-          amountS: b.extractUint(offset + 96),
-          split: b.extractUint(offset + 128),
-          feeAmount: b.extractUint(offset + 160),
-          feeAmountS: b.extractUint(offset + 192),
-          feeAmountB: b.extractUint(offset + 224),
+          orderHash: "0x" + b.extractBytes32(offset + 200).toString("hex"),
+          amountS: b.extractUint(offset + 168),
+          owner: "0x" + b.extractBytes32(offset + 136).toString("hex").slice(24),
+          tokenS: "0x" + b.extractBytes32(offset + 116).toString("hex").slice(24),
+          split: b.extractUint(offset + 96),
+          feeAmount: b.extractUint(offset + 64),
+          feeAmountS: b.extractUint(offset + 32),
+          feeAmountB: b.extractUint(offset + 0),
         };
         fills.push(fill);
       }

@@ -38,47 +38,47 @@ contract OrderBook is IOrderBook, NoDefaultFunc {
         external
         returns (bytes32)
     {
-        require(data.length >= 736, INVALID_SIZE); //23 * 32
+        require(data.length >= 23 * 32, INVALID_SIZE);
 
         Data.Order memory order = Data.Order(
             0,                                                      // version
-            address(data.bytesToUint(0)), //0 * 32                     // owner
-            address(data.bytesToUint(32)), //1 * 32                        // tokenS
-            address(data.bytesToUint(64)),  //2 * 32                       // tokenB
-            data.bytesToUint(96),  //3 * 32                                // amountS
-            data.bytesToUint(128), //4 * 32                                // amountB
-            data.bytesToUint(160),   //5 * 32                               // validSince
+            address(data.bytesToUint(0 * 32)),                      // owner
+            address(data.bytesToUint(1 * 32)),                      // tokenS
+            address(data.bytesToUint(2 * 32)),                      // tokenB
+            data.bytesToUint(3 * 32),                               // amountS
+            data.bytesToUint(4 * 32),                               // amountB
+            data.bytesToUint(5 * 32),                               // validSince
             Data.Spendable(true, 0, 0),
             Data.Spendable(true, 0, 0),
             0x0,
-            address(data.bytesToUint(192)),  //6 * 32                       // broker
+            address(data.bytesToUint(6 * 32)),                      // broker
             Data.Spendable(true, 0, 0),
             Data.Spendable(true, 0, 0),
-            address(data.bytesToUint(224)), //7 * 32                        // orderInterceptor
-            address(data.bytesToUint(256)), //8 * 32                        // wallet
-            uint(data.bytesToUint(288)),  //9 * 32                          // validUtil
+            address(data.bytesToUint(7 * 32)),                      // orderInterceptor
+            address(data.bytesToUint(8 * 32)),                      // wallet
+            uint(data.bytesToUint(9 * 32)),                         // validUtil
             new bytes(0),
             new bytes(0),
-            bool(data.bytesToUint(320) > 0), //10 * 32                      // allOrNone
-            address(data.bytesToUint(352)),//11 * 32                        // feeToken
-            data.bytesToUint(384),    //12 * 32                             // feeAmount
+            bool(data.bytesToUint(10 * 32) > 0),                    // allOrNone
+            address(data.bytesToUint(11 * 32)),                     // feeToken
+            data.bytesToUint(12 * 32),                              // feeAmount
             0,
-            uint16(data.bytesToUint(416)), //13 * 32                        // tokenSFeePercentage
-            uint16(data.bytesToUint(448)), //14 * 32                        // tokenBFeePercentage
-            address(data.bytesToUint(480)), //15 * 32                       // tokenRecipient
-            uint16(data.bytesToUint(512)),  //16 * 32                       // walletSplitPercentage
+            uint16(data.bytesToUint(13 * 32)),                      // tokenSFeePercentage
+            uint16(data.bytesToUint(14 * 32)),                      // tokenBFeePercentage
+            address(data.bytesToUint(15 * 32)),                     // tokenRecipient
+            uint16(data.bytesToUint(16 * 32)),                      // walletSplitPercentage
             false,
             bytes32(0x0),
             0x0,
             0,
             0,
             true,
-            Data.TokenType(data.bytesToUint(544)), //17 * 32                 // tokenTypeS
-            Data.TokenType(data.bytesToUint(576)), //18 * 32                 // tokenTypeB
-            Data.TokenType(data.bytesToUint(608)), //19 * 32                // tokenTypeFee
-            data.bytesToBytes32(640), //20 * 32                             // trancheS
-            data.bytesToBytes32(672),//21 * 32                              // trancheB
-            data.subBytes(704) //22 * 32                                    // transferDataS
+            Data.TokenType(data.bytesToUint(17 * 32)),              // tokenTypeS
+            Data.TokenType(data.bytesToUint(18 * 32)),              // tokenTypeB
+            Data.TokenType(data.bytesToUint(19 * 32)),              // tokenTypeFee
+            data.bytesToBytes32(20 * 32),                           // trancheS
+            data.bytesToBytes32(21 * 32),                           // trancheB
+            data.subBytes(22 * 32)                                  // transferDataS
         );
         require(data.length == 23 * 32 + order.transferDataS.length, INVALID_SIZE);
 

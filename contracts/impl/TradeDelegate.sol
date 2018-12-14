@@ -49,7 +49,7 @@ contract TradeDelegate is ITradeDelegate, Authorizable, Killable, NoDefaultFunc 
             address to;
             uint amount;
             assembly {
-                token := calldataload(p)
+                token := calldataload(add(p,  0))
                 from := calldataload(add(p, 32))
                 to := calldataload(add(p, 64))
                 amount := calldataload(add(p, 96))

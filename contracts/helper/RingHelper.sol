@@ -168,44 +168,31 @@ library RingHelper {
         }
     }
 
-    function checkValidity(
-        Data.Ring ring,
-        bool checkSubring
+    function checkOrdersValid(
+        Data.Ring ring
         )
         internal
         pure
     {
-        uint ringSize = ring.size;
-        bool valid = ring.valid;
-        assembly {
-            let prev := 0
-            valid := and(valid, and(gt(ringSize,1), lt(ringSize, 8))) // ring.valid && (ring.size > 1 && ring.size <= 8)
-            let participations := mload(add(ring, 32))
+        ring.valid = ring.valid && (ring.size > 1 && ring.size <= 8); // invalid ring size
+        for (uint i = 0; i < ring.size; i++) {
+            uint prev = (i + ring.size - 1) % ring.size;
+            ring.valid = ring.valid && ring.participations[i].order.valid;
+            ring.valid = ring.valid && ring.participations[i].order.tokenS == ring.participations[prev].order.tokenB;
+        }
+    }
 
-            for { let i := 0 } lt(i, ringSize) { i := add(i, 1) } { // for (uint i = 0; i < ring.size; i++)
-
-              prev := mod(sub(add(i, ringSize), 1), ringSize) //uint prev = (i + ring.size - 1) % ring.size;
-
-              let participation := mload(add(participations, add(32, mul(i, 32))))   // participations[i]
-              let prevParticipation := mload(add(participations, add(32, mul(prev, 32)))) // participations[prev]
-              let order := mload(participation)
-              let prevOrder := mload(prevParticipation)
-              let tokenS := mload(add(order, 64))
-              //ring.valid && ring.participations[i].order.valid && ring.participations[i].order.tokenS == ring.participations[prev].order.tokenB:
-              valid := and(and(valid, mload(add(order, 992))),eq(tokenS, mload(add(prevOrder, 96))))
-
-              if and(checkSubring, lt(i, sub(ringSize, 1))) {
-                for {let j := add(i,1) } lt(j, ringSize) { j := add(j, 1) } { // for (uint j = i + 1; j < ring.size; j++) {
-
-                  let participationj := mload(add(participations, add(32, mul(j, 32))))   // participations[j]
-                  let orderj := mload(participationj)
-                  let tokenJ := mload(add(orderj, 64)) //address tokenJ = ring.participations[j].order.tokenS;
-                  valid := and(valid, not(eq(tokenS, tokenJ))) // ring.valid && (tokenS != ring.participations[j].order.tokenS);
-                }
-              }
-
+    function checkForSubRings(
+        Data.Ring ring
+        )
+        internal
+        pure
+    {
+        for (uint i = 0; i < ring.size - 1; i++) {
+            address tokenS = ring.participations[i].order.tokenS;
+            for (uint j = i + 1; j < ring.size; j++) {
+                ring.valid = ring.valid && (tokenS != ring.participations[j].order.tokenS);
             }
-            mstore(add(ring, 128), valid) //update ring.valid
         }
     }
 
@@ -253,7 +240,7 @@ library RingHelper {
         returns (uint fill)
     {
         uint ringSize = ring.size;
-        uint fillSize = 256; //8 * 32
+        uint fillSize = 232;
         assembly {
             fill := destPtr
             let participations := mload(add(ring, 32))                                 // ring.participations
@@ -276,14 +263,15 @@ library RingHelper {
                     mload(add(participation, 224))                                      // participation.rebateFeeB
                 )
 
-                mstore(fill, mload(add(order, 864)))                         // order.hash
-                mstore(add(fill,  32), mload(add(order,  32)))                         // order.owner
-                mstore(add(fill,  64), mload(add(order,  64)))                         // order.tokenS
-                mstore(add(fill,  96), mload(add(participation, 256)))                 // participation.fillAmountS
-                mstore(add(fill, 128), mload(add(participation,  32)))                 // participation.splitS
-                mstore(add(fill, 160), feeAmount)                                      // feeAmount
-                mstore(add(fill, 192), feeAmountS)                                     // feeAmountS
-                mstore(add(fill, 224), feeAmountB)                                     // feeAmountB
+
+                mstore(add(fill,   200), mload(add(order, 864)))                         // order.hash
+                mstore(add(fill,  168), mload(add(participation, 256)))                 // participation.fillAmountS
+                mstore(add(fill,  136), mload(add(order,  32)))                         // order.owner
+                mstore(add(fill,  116), mload(add(order,  64)))                         // order.tokenS
+                mstore(add(fill, 96), mload(add(participation,  32)))                 // participation.splitS
+                mstore(add(fill, 64), feeAmount)                                      // feeAmount
+                mstore(add(fill, 32), feeAmountS)                                     // feeAmountS
+                mstore(add(fill, 0), feeAmountB)                                     // feeAmountB
 
                 fill := add(fill, fillSize)
             }
@@ -408,7 +396,7 @@ library RingHelper {
                 // Try to find an existing fee payment of the same token to the same owner
                 let addNew := 1
                 for { let p := data } lt(p, ptr) { p := add(p, 128) } {
-                    let dataToken := mload(p)
+                    let dataToken := mload(add(p,  0))
                     let dataFrom := mload(add(p, 32))
                     let dataTo := mload(add(p, 64))
                     // if(token == dataToken && from == dataFrom && to == dataTo)
@@ -428,7 +416,7 @@ library RingHelper {
                 }
                 // Add a new transfer
                 if eq(addNew, 1) {
-                    mstore(ptr, token)
+                    mstore(add(ptr,  0), token)
                     mstore(add(ptr, 32), from)
                     mstore(add(ptr, 64), to)
                     mstore(add(ptr, 96), amount)
@@ -679,7 +667,7 @@ library RingHelper {
                 // Try to find an existing fee payment of the same token to the same owner
                 let addNew := 1
                 for { let p := data } lt(p, ptr) { p := add(p, 96) } {
-                    let dataToken := mload(p)
+                    let dataToken := mload(add(p,  0))
                     let dataOwner := mload(add(p, 32))
                     // if(token == dataToken && owner == dataOwner)
                     if and(eq(token, dataToken), eq(owner, dataOwner)) {
@@ -698,7 +686,7 @@ library RingHelper {
                 }
                 // Add a new fee payment
                 if eq(addNew, 1) {
-                    mstore(ptr, token)
+                    mstore(add(ptr,  0), token)
                     mstore(add(ptr, 32), owner)
                     mstore(add(ptr, 64), amount)
                     ptr := add(ptr, 96)

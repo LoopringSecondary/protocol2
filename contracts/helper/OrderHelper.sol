@@ -133,7 +133,7 @@ library OrderHelper {
             let transferDataSHash := keccak256(add(transferDataS, 32), mload(transferDataS))
 
             let ptr := mload(64)
-            mstore(ptr, _EIP712_ORDER_SCHEMA_HASH)     // EIP712_ORDER_SCHEMA_HASH
+            mstore(add(ptr,   0), _EIP712_ORDER_SCHEMA_HASH)     // EIP712_ORDER_SCHEMA_HASH
             mstore(add(ptr,  32), mload(add(order, 128)))        // order.amountS
             mstore(add(ptr,  64), mload(add(order, 160)))        // order.amountB
             mstore(add(ptr,  96), mload(add(order, 640)))        // order.feeAmount
@@ -160,7 +160,7 @@ library OrderHelper {
             mstore(add(ptr, 768), transferDataSHash)             // keccak256(order.transferDataS)
             let message := keccak256(ptr, 800)                   // 25 * 32
 
-            mstore(ptr, 0x1901)                         // EIP191_HEADER
+            mstore(add(ptr,  0), 0x1901)                         // EIP191_HEADER
             mstore(add(ptr, 32), _EIP712_DOMAIN_HASH)            // EIP712_DOMAIN_HASH
             mstore(add(ptr, 64), message)                        // message
             hash := keccak256(add(ptr, 30), 66)                  // 2 + 32 + 32
@@ -214,34 +214,27 @@ library OrderHelper {
         view
     {
         bool valid = true;
-        uint feePercentageBase = ctx.feePercentageBase;
-        uint dataLength = order.transferDataS.length;
-        Data.TokenType ErcType = Data.TokenType.ERC20;
-        assembly{
+        valid = valid && (order.version == 0); // unsupported order version
+        valid = valid && (order.owner != 0x0); // invalid order owner
+        valid = valid && (order.tokenS != 0x0); // invalid order tokenS
+        valid = valid && (order.tokenB != 0x0); // invalid order tokenB
+        valid = valid && (order.amountS != 0); // invalid order amountS
+        valid = valid && (order.amountB != 0); // invalid order amountB
+        valid = valid && (order.feeToken != 0x0); // invalid fee token
 
-          valid := and(valid, eq(mload(order), 0))      // unsupported order version
-          valid := and(valid, not(eq(mload(add(order, 32)), 0x0))) // invalid order owner
-          valid := and(valid, not(eq(mload(add(order, 64)), 0x0))) // invalid order tokenS
-          valid := and(valid, not(eq(mload(add(order, 96)), 0x0))) // invalid order tokenB
-          valid := and(valid, not(eq(mload(add(order, 128)), 0))) // invalid order amountS
-          valid := and(valid, not(eq(mload(add(order, 160)), 0x0))) // invalid order amountB
-          valid := and(valid, not(eq(mload(add(order, 608)), 0x0))) // invalid fee token
+        valid = valid && (order.tokenSFeePercentage < ctx.feePercentageBase); // invalid tokenS percentage
+        valid = valid && (order.tokenBFeePercentage < ctx.feePercentageBase); // invalid tokenB percentage
+        valid = valid && (order.walletSplitPercentage <= 100); // invalid wallet split percentage
 
+        // We only support ERC20 for now
+        valid = valid && (order.tokenTypeS == Data.TokenType.ERC20 && order.trancheS == 0x0);
+        valid = valid && (order.tokenTypeB == Data.TokenType.ERC20 && order.trancheB == 0x0);
+        valid = valid && (order.tokenTypeFee == Data.TokenType.ERC20);
+        valid = valid && (order.transferDataS.length == 0);
 
-          valid := and(valid, lt(mload(add(order, 704)), feePercentageBase)) // invalid tokenS percentage
-          valid := and(valid, lt(mload(add(order, 736)), feePercentageBase)) // invalid tokenB percentage
-          valid := and(valid, or(lt(mload(add(order, 800)), 100), eq(mload(add(order, 800)), 100))) // invalid wallet split percentage
+        valid = valid && (order.validSince <= now); // order is too early to match
 
-          // We only support ERC20 for now
-          valid := and(valid, and(eq(mload(add(order, 1024)), ErcType), eq(mload(add(order, 1120)), 0x0))) // valid && (order.tokenTypeS == Data.TokenType.ERC20 && order.trancheS == 0x0)
-          valid := and(valid, and(eq(mload(add(order, 1056)), ErcType), eq(mload(add(order, 1152)), 0x0))) // valid && (order.tokenTypeB == Data.TokenType.ERC20 && order.trancheB == 0x0)
-          valid := and(valid, eq(mload(add(order, 1088)), ErcType)) //valid && (order.tokenTypeFee == Data.TokenType.ERC20);
-          valid := and(valid, eq(dataLength, 0)) // valid = valid && (order.transferDataS.length == 0);
-
-          valid := and(valid, or(lt(mload(add(order, 192)), timestamp), eq(mload(add(order, 192)), timestamp))) // order is too early to match
-
-          mstore(add(order, 992), and(valid, mload(add(order, 992)))) //order.valid = order.valid && valid;
-        }
+        order.valid = order.valid && valid;
 
         validateUnstableInfo(order, ctx);
     }

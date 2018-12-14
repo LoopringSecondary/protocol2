@@ -88,9 +88,9 @@ library ExchangeDeserializer {
             mstore(add(data, 20), origin)
 
             // mining.feeRecipient
-            offset := mul(and(mload(tablesPtr), 0xFFFF), 4)
+            offset := mul(and(mload(add(tablesPtr,  0)), 0xFFFF), 4)
             mstore(
-                mining,
+                add(mining,   0),
                 mload(add(add(data, 20), offset))
             )
 
@@ -131,7 +131,7 @@ library ExchangeDeserializer {
         returns (Data.Order[] orders)
     {
         bytes memory emptyBytes = new bytes(0);
-        uint orderStructSize = 1216; //38 * 32
+        uint orderStructSize = 38 * 32;
         // Memory for orders length + numOrders order pointers
         uint arrayDataSize = (1 + numOrders) * 32;
         Data.Spendable[] memory spendableList = new Data.Spendable[](numSpendables);
@@ -140,7 +140,7 @@ library ExchangeDeserializer {
         assembly {
             // Allocate memory for all orders
             orders := mload(0x40)
-            mstore(orders, numOrders)                       // orders.length
+            mstore(add(orders, 0), numOrders)                       // orders.length
             // Reserve the memory for the orders array
             mstore(0x40, add(orders, add(arrayDataSize, mul(orderStructSize, numOrders))))
 
@@ -151,9 +151,9 @@ library ExchangeDeserializer {
                 mstore(add(orders, mul(add(1, i), 32)), order)
 
                 // order.version
-                offset := and(mload(tablesPtr), 0xFFFF)
+                offset := and(mload(add(tablesPtr,  0)), 0xFFFF)
                 mstore(
-                    order,
+                    add(order,   0),
                     offset
                 )
 
@@ -412,13 +412,13 @@ library ExchangeDeserializer {
         returns (Data.Ring[] rings)
     {
         uint ringsArrayDataSize = (1 + numRings) * 32;
-        uint ringStructSize = 160; //5 * 32
-        uint participationStructSize = 320; //10 * 32
+        uint ringStructSize = 5 * 32;
+        uint participationStructSize = 10 * 32;
 
         assembly {
             // Allocate memory for all rings
             rings := mload(0x40)
-            mstore(rings, numRings)                      // rings.length
+            mstore(add(rings, 0), numRings)                      // rings.length
             // Reserve the memory for the rings array
             mstore(0x40, add(rings, add(ringsArrayDataSize, mul(ringStructSize, numRings))))
 
@@ -439,14 +439,14 @@ library ExchangeDeserializer {
 
                 // Allocate memory for all participations
                 let participations := mload(0x40)
-                mstore(participations, ringSize)         // participations.length
+                mstore(add(participations, 0), ringSize)         // participations.length
                 // Memory for participations length + ringSize participation pointers
                 let participationsData := add(participations, mul(add(1, ringSize), 32))
                 // Reserve the memory for the participations
                 mstore(0x40, add(participationsData, mul(participationStructSize, ringSize)))
 
                 // Initialize ring properties
-                mstore(ring, ringSize)                 // ring.size
+                mstore(add(ring,   0), ringSize)                 // ring.size
                 mstore(add(ring,  32), participations)           // ring.participations
                 mstore(add(ring,  64), 0)                        // ring.hash
                 mstore(add(ring,  96), 0)                        // ring.minerFeesToOrdersPercentage
@@ -468,7 +468,7 @@ library ExchangeDeserializer {
 
                     // participation.order
                     mstore(
-                        participation,
+                        add(participation,   0),
                         mload(add(orders, mul(add(orderIndex, 1), 32)))
                     )
 
