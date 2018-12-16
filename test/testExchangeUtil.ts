@@ -69,9 +69,9 @@ export class ExchangeTestUtil {
       for (let offset = 0; offset < b.length(); offset += fillSize) {
         const fill: pjs.Fill = {
           orderHash: "0x" + b.extractBytes32(offset + 200).toString("hex"),
-          amountS: b.extractUint(offset + 168),
-          owner: "0x" + b.extractBytes32(offset + 136).toString("hex").slice(24),
-          tokenS: "0x" + b.extractBytes32(offset + 116).toString("hex").slice(24),
+          owner: "0x" + b.extractBytes32(offset + 168).toString("hex").slice(24),
+          tokenS: "0x" + b.extractBytes32(offset + 148).toString("hex").slice(24),
+          amountS: b.extractUint(offset + 128),
           split: b.extractUint(offset + 96),
           feeAmount: b.extractUint(offset + 64),
           feeAmountS: b.extractUint(offset + 32),
