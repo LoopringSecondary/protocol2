@@ -65,7 +65,6 @@ library RingHelper {
         Data.Context memory ctx
         )
         internal
-        view
     {
         // Invalid order data could cause a divide by zero in the calculations
         if (!ring.valid) {
@@ -117,6 +116,14 @@ library RingHelper {
         for (i = 0; i < ring.size; i++) {
             prevIndex = (i + ring.size - 1) % ring.size;
 
+            // Check if we can transfer the tokens (if ST-20)
+            ring.valid = ring.valid && verifyTransferProxy(
+                ring.participations[i].order.tokenS,
+                ring.participations[i].order.owner,
+                ring.participations[prevIndex].order.tokenRecipient,
+                ring.participations[i].fillAmountS
+            );
+
             bool valid = ring.participations[i].calculateFees(ring.participations[prevIndex], ctx);
             if (!valid) {
                 ring.valid = false;
@@ -134,6 +141,36 @@ library RingHelper {
         // Ring calculations are done. Make sure te remove all spendable reservations for this ring
         for (i = 0; i < ring.size; i++) {
             ring.participations[i].order.resetReservations();
+        }
+    }
+
+    // ST-20: transfer, transferFrom must respect the result of verifyTransfer
+    function verifyTransferProxy(
+        address token,
+        address from,
+        address to,
+        uint256 amount
+        )
+        internal
+        returns (bool)
+    {
+        bytes memory callData = abi.encodeWithSelector(
+            ERC20(token).verifyTransfer.selector,
+            from,
+            to,
+            amount
+        );
+        (bool success, bytes memory returnData) = token.call(callData);
+        // We expect a single boolean as the return value
+        if (success && returnData.length == 32) {
+            // Check if a boolean was returned
+            assembly {
+                success := mload(add(returnData, 32))
+            }
+            return success;
+        } else {
+            // No function found, normal ERC20 token
+            return true;
         }
     }
 

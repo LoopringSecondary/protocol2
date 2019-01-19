@@ -35,6 +35,8 @@ contract TEST is DummyToken {
     address public exchangeAddress = address(0x0);
     bytes public submitRingsData;
 
+    bool public allowTransfer = true;
+
     constructor() DummyToken(
         "TEST_TEST",
         "TEST",
@@ -51,6 +53,7 @@ contract TEST is DummyToken {
         public
         returns (bool)
     {
+        require(verifyTransfer(msg.sender, _to, _value), "TRANSFER_NOT_ALLOWED");
         require(_to != address(0x0), "ZERO_ADDRESS");
         require(_value <= balances[msg.sender], "INVALID_VALUE");
         // SafeMath.sub will throw if there is not enough balance.
@@ -68,6 +71,7 @@ contract TEST is DummyToken {
         public
         returns (bool)
     {
+        require(verifyTransfer(_from, _to, _value), "TRANSFER_NOT_ALLOWED");
         require(_to != address(0x0), "ZERO_ADDRESS");
         require(_value <= balances[_from], "INVALID_VALUE");
         require(_value <= allowed[_from][msg.sender], "INVALID_VALUE");
@@ -143,5 +147,26 @@ contract TEST is DummyToken {
         for (uint i = 0; i < _submitRingsData.length; i++) {
             submitRingsData[i] = _submitRingsData[i];
         }
+    }
+
+    // ST-20: transfer, transferFrom must respect the result of verifyTransfer
+    function verifyTransfer(
+        address /*_from*/,
+        address /*_to*/,
+        uint256 /*_amount*/
+        )
+        public
+        view
+        returns (bool)
+    {
+        return allowTransfer;
+    }
+
+    function setAllowTransfer(
+        bool _allowTransfer
+        )
+        external
+    {
+        allowTransfer = _allowTransfer;
     }
 }

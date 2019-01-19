@@ -724,6 +724,58 @@ contract("Exchange_Submit", (accounts: string[]) => {
       );
     });
 
+    it("ST20: ring shouldn't be valid when verifyTransfer returns false", async () => {
+      const ringsInfo: pjs.RingsInfo = {
+        rings: [[0, 1]],
+        orders: [
+          {
+            tokenS: "WETH",
+            tokenB: "TEST",
+            amountS: 10e18,
+            amountB: 10e18,
+          },
+          {
+            tokenS: "TEST",
+            tokenB: "WETH",
+            amountS: 10e18,
+            amountB: 10e18,
+          },
+        ],
+        expected: {
+          rings: [
+            {
+              fail: true,
+            },
+          ],
+        },
+      };
+      await exchangeTestUtil.setupRings(ringsInfo);
+
+      // Disallow the ST20 token transfer
+      const TestToken = await TESTToken.at(exchangeTestUtil.testContext.tokenSymbolAddrMap.get("TEST"));
+      await TestToken.setTestCase(await TestToken.TEST_NOTHING());
+      await TestToken.setAllowTransfer(false);
+      await exchangeTestUtil.submitRingsAndSimulate(ringsInfo, dummyExchange);
+
+      // Allow the ST20 token transfer
+      ringsInfo.expected = {
+        rings: [
+          {
+            orders: [
+              {
+                filledFraction: 1.0,
+              },
+              {
+                filledFraction: 1.0,
+              },
+            ],
+          },
+        ],
+      };
+      await TestToken.setAllowTransfer(true);
+      await exchangeTestUtil.submitRingsAndSimulate(ringsInfo, dummyExchange);
+    });
+
   });
 
 });

@@ -62,4 +62,12 @@ contract ERC20 {
         )
         public
         returns (bool);
+
+    function verifyTransfer(
+        address from,
+        address to,
+        uint256 amount
+        )
+        public
+        returns (bool);
 }
