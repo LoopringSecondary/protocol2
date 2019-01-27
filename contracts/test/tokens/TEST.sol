@@ -53,7 +53,7 @@ contract TEST is DummyToken {
         public
         returns (bool)
     {
-        require(verifyTransfer(msg.sender, _to, _value), "TRANSFER_NOT_ALLOWED");
+        require(verifyTransfer(msg.sender, _to, _value, new bytes(0)), "TRANSFER_NOT_ALLOWED");
         require(_to != address(0x0), "ZERO_ADDRESS");
         require(_value <= balances[msg.sender], "INVALID_VALUE");
         // SafeMath.sub will throw if there is not enough balance.
@@ -71,7 +71,7 @@ contract TEST is DummyToken {
         public
         returns (bool)
     {
-        require(verifyTransfer(_from, _to, _value), "TRANSFER_NOT_ALLOWED");
+        require(verifyTransfer(_from, _to, _value, new bytes(0)), "TRANSFER_NOT_ALLOWED");
         require(_to != address(0x0), "ZERO_ADDRESS");
         require(_value <= balances[_from], "INVALID_VALUE");
         require(_value <= allowed[_from][msg.sender], "INVALID_VALUE");
@@ -153,7 +153,8 @@ contract TEST is DummyToken {
     function verifyTransfer(
         address /*_from*/,
         address /*_to*/,
-        uint256 /*_amount*/
+        uint256 /*_amount*/,
+        bytes memory /*data*/
         )
         public
         view

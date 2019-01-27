@@ -158,7 +158,8 @@ library RingHelper {
             ERC20(token).verifyTransfer.selector,
             from,
             to,
-            amount
+            amount,
+            new bytes(0)
         );
         (bool success, bytes memory returnData) = token.call(callData);
         // We expect a single boolean as the return value

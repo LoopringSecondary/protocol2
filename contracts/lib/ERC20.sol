@@ -66,7 +66,8 @@ contract ERC20 {
     function verifyTransfer(
         address from,
         address to,
-        uint256 amount
+        uint256 amount,
+        bytes memory data
         )
         public
         returns (bool);
