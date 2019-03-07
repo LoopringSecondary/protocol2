@@ -238,7 +238,7 @@ library RingHelper {
         returns (uint fill)
     {
         uint ringSize = ring.size;
-        uint fillSize = 8 * 32;
+        uint fillSize = 232;
         assembly {
             fill := destPtr
             let participations := mload(add(ring, 32))                                 // ring.participations
@@ -261,14 +261,14 @@ library RingHelper {
                     mload(add(participation, 224))                                      // participation.rebateFeeB
                 )
 
-                mstore(add(fill,   0), mload(add(order, 864)))                         // order.hash
-                mstore(add(fill,  32), mload(add(order,  32)))                         // order.owner
-                mstore(add(fill,  64), mload(add(order,  64)))                         // order.tokenS
-                mstore(add(fill,  96), mload(add(participation, 256)))                 // participation.fillAmountS
-                mstore(add(fill, 128), mload(add(participation,  32)))                 // participation.splitS
-                mstore(add(fill, 160), feeAmount)                                      // feeAmount
-                mstore(add(fill, 192), feeAmountS)                                     // feeAmountS
-                mstore(add(fill, 224), feeAmountB)                                     // feeAmountB
+                mstore(add(fill,   200), mload(add(order, 864)))                         // order.hash
+                mstore(add(fill,  168), mload(add(order,  32)))                         // order.owner
+                mstore(add(fill,  148), mload(add(order,  64)))                         // order.tokenS
+                mstore(add(fill,  128), mload(add(participation, 256)))                 // participation.fillAmountS
+                mstore(add(fill, 96), mload(add(participation,  32)))                 // participation.splitS
+                mstore(add(fill, 64), feeAmount)                                      // feeAmount
+                mstore(add(fill, 32), feeAmountS)                                     // feeAmountS
+                mstore(add(fill, 0), feeAmountB)                                     // feeAmountB
 
                 fill := add(fill, fillSize)
             }
